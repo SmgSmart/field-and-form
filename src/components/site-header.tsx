@@ -18,15 +18,6 @@ export function SiteHeader({
           <NavLink to="/services" search={{ category: "all" }} active={mode === "site"}>
             Services
           </NavLink>
-          <Link
-            to="/admin"
-            className={cn(
-              "inline-flex h-11 items-center rounded-full px-3",
-              mode === "desk" ? "bg-ink text-bone" : "text-ink hover:bg-paper",
-            )}
-          >
-            Desk
-          </Link>
         </nav>
       </div>
     </header>
@@ -83,7 +74,9 @@ export function SiteFooter({
     <footer className="mt-16 bg-field text-bone">
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-display text-3xl">{name}</p>
+          <Link to="/admin" className="inline-flex min-h-11 items-center font-display text-3xl text-bone">
+            {name}
+          </Link>
           <p className="mt-2 text-sm text-bone/70">{city || "Set a city in the desk"}</p>
         </div>
         <div className="space-y-1 text-sm text-bone/80">
