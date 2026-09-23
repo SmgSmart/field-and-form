@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
-import { authMiddleware } from "@/lib/auth/middleware";
+import { deskGate } from "@/lib/desk-middleware";
 import {
   ACTION_KINDS,
   FACES,
@@ -14,6 +14,7 @@ import {
   type Service,
   type ServiceAction,
   type ServiceDraft,
+  type DraftImage,
   type Studio,
 } from "@/lib/studio.types";
 
@@ -126,7 +127,7 @@ function mapAction(row: ActionRow): ServiceAction {
   };
 }
 
-function mapService(row: ServiceRow, actions: ServiceAction[]): Service {
+function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[]): Service {
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -143,6 +144,7 @@ function mapService(row: ServiceRow, actions: ServiceAction[]): Service {
     face: isFace(row.face) ? row.face : "arc",
     sortOrder: asNum(row.sort_order),
     actions,
+    imageIds,
   };
 }
 
@@ -200,20 +202,38 @@ async function readServices(sql: Sql, publishedOnly: boolean): Promise<Service[]
     list.push(mapAction(action));
     byService.set(action.service_id, list);
   }
-  return rows.map((row) => mapService(row, byService.get(row.id) ?? []));
+  const images = publishedOnly
+    ? await sql<{ id: string; service_id: string }>`
+        select i.id, i.service_id
+        from service_images i
+        join services s on s.id = i.service_id
+        where s.published = true
+        order by i.sort_order, i.id
+      `
+    : await sql<{ id: string; service_id: string }>`
+        select id, service_id
+        from service_images
+        order by sort_order, id
+      `;
+  const imagesByService = new Map<string, string[]>();
+  for (const image of images) {
+    const list = imagesByService.get(image.service_id) ?? [];
+    list.push(image.id);
+    imagesByService.set(image.service_id, list);
+  }
+  return rows.map((row) => mapService(row, byService.get(row.id) ?? [], imagesByService.get(row.id) ?? []));
 }
 
-async function claimOwner(sql: Sql, userId: string): Promise<Result<true>> {
+const DESK_OWNER = "desk";
+
+async function requireDesk(sql: Sql, signedIn: boolean): Promise<Result<true>> {
+  if (!signedIn) return { ok: false, error: "Sign in to the desk." };
   const current = await readStudio(sql);
-  if (!current.owner_user_id) {
-    await sql`update studio set owner_user_id = ${userId} where id = 1 and owner_user_id is null`;
+  if (current.owner_user_id !== DESK_OWNER) {
+    await sql`update studio set owner_user_id = ${DESK_OWNER} where id = 1`;
+    await sql`update categories set owner_user_id = ${DESK_OWNER}`;
+    await sql`update services set owner_user_id = ${DESK_OWNER}`;
   }
-  const next = await readStudio(sql);
-  if (next.owner_user_id !== userId) {
-    return { ok: false, error: "This studio already has an owner account." };
-  }
-  await sql`update categories set owner_user_id = ${userId} where owner_user_id is null`;
-  await sql`update services set owner_user_id = ${userId} where owner_user_id is null`;
   return { ok: true, data: true };
 }
 
@@ -284,10 +304,10 @@ export const submitInquiry = createServerFn({ method: "POST" })
   });
 
 export const getAdminState = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .handler(async ({ context }): Promise<Result<AdminState>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     const studioRow = await readStudio(sql);
     const categories = await readCategories(sql);
@@ -306,7 +326,7 @@ export const getAdminState = createServerFn({ method: "GET" })
   });
 
 export const saveStudio = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((input: Studio) => {
     const name = input.name?.trim().slice(0, 60) ?? "";
     if (!name) throw new Error("The studio needs a name.");
@@ -322,7 +342,7 @@ export const saveStudio = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }): Promise<Result<Studio>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     if (!data.headline) return { ok: false, error: "Write a headline for the main page." };
     await sql`
@@ -335,13 +355,13 @@ export const saveStudio = createServerFn({ method: "POST" })
           email = ${data.email},
           phone = ${data.phone},
           updated_at = now()
-      where id = 1 and owner_user_id = ${context.userId}
+      where id = 1 and owner_user_id = ${DESK_OWNER}
     `;
     return { ok: true, data };
   });
 
 export const saveCategory = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((input: { id?: string; name: string; blurb: string }) => {
     const name = input.name?.trim().slice(0, 40) ?? "";
     if (!name) throw new Error("Name the category.");
@@ -353,17 +373,17 @@ export const saveCategory = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }): Promise<Result<Category>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     if (data.id) {
       const slugRows = await sql<{ slug: string }>`
-        select slug from categories where id = ${data.id} and owner_user_id = ${context.userId}
+        select slug from categories where id = ${data.id} and owner_user_id = ${DESK_OWNER}
       `;
       if (!slugRows[0]) return { ok: false, error: "That category is not yours." };
       await sql`
         update categories
         set name = ${data.name}, blurb = ${data.blurb}
-        where id = ${data.id} and owner_user_id = ${context.userId}
+        where id = ${data.id} and owner_user_id = ${DESK_OWNER}
       `;
       const rows = await sql<CategoryRow>`
         select id, name, slug, blurb, sort_order from categories where id = ${data.id}
@@ -376,7 +396,7 @@ export const saveCategory = createServerFn({ method: "POST" })
     const sortOrder = asNum(orderRows[0]?.max) + 1;
     await sql`
       insert into categories (id, owner_user_id, name, slug, blurb, sort_order)
-      values (${id}, ${context.userId}, ${data.name}, ${slug}, ${data.blurb}, ${sortOrder})
+      values (${id}, ${DESK_OWNER}, ${data.name}, ${slug}, ${data.blurb}, ${sortOrder})
     `;
     return {
       ok: true,
@@ -385,20 +405,68 @@ export const saveCategory = createServerFn({ method: "POST" })
   });
 
 export const deleteCategory = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((id: string) => id.trim())
   .handler(async ({ context, data: id }): Promise<Result<true>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     const used = await sql<{ id: string }>`select id from services where category_id = ${id} limit 1`;
     if (used[0]) return { ok: false, error: "Move or delete the services in this category first." };
-    await sql`delete from categories where id = ${id} and owner_user_id = ${context.userId}`;
+    await sql`delete from categories where id = ${id} and owner_user_id = ${DESK_OWNER}`;
     return { ok: true, data: true };
   });
 
+const IMAGE_LIMIT = 3;
+const IMAGE_CHARS = 700_000;
+
+function normalizeImages(input: DraftImage[] | undefined): DraftImage[] {
+  const images: DraftImage[] = [];
+  for (const image of (input ?? []).slice(0, IMAGE_LIMIT)) {
+    const id = image.id?.trim();
+    const dataUrl = image.dataUrl?.trim();
+    if (id && !dataUrl) {
+      images.push({ id });
+      continue;
+    }
+    if (!dataUrl) continue;
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+    if (!match) throw new Error("Use a JPEG, PNG, or WebP photo.");
+    if (match[2].length > IMAGE_CHARS) throw new Error("That photo is too large. Try a smaller one.");
+    images.push({ dataUrl });
+  }
+  return images;
+}
+
+async function writeImages(sql: Sql, serviceId: string, images: DraftImage[]): Promise<void> {
+  const owned = await sql<{ id: string }>`select id from service_images where service_id = ${serviceId}`;
+  const ownedIds = new Set(owned.map((row) => row.id));
+  const keep: string[] = [];
+  for (let index = 0; index < images.length; index += 1) {
+    const image = images[index];
+    const sortOrder = index + 1;
+    if (image.id && ownedIds.has(image.id)) {
+      await sql`update service_images set sort_order = ${sortOrder} where id = ${image.id}`;
+      keep.push(image.id);
+      continue;
+    }
+    if (!image.dataUrl) continue;
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(image.dataUrl);
+    if (!match) continue;
+    const id = crypto.randomUUID();
+    await sql`
+      insert into service_images (id, service_id, sort_order, content_type, data)
+      values (${id}, ${serviceId}, ${sortOrder}, ${match[1]}, ${match[2]})
+    `;
+    keep.push(id);
+  }
+  for (const row of owned) {
+    if (!keep.includes(row.id)) await sql`delete from service_images where id = ${row.id}`;
+  }
+}
+
 export const saveService = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((input: ServiceDraft): ServiceDraft => {
     const name = input.name?.trim().slice(0, 80) ?? "";
     const summary = input.summary?.trim().slice(0, 280) ?? "";
@@ -415,6 +483,7 @@ export const saveService = createServerFn({ method: "POST" })
       .filter((action) => action.label)
       .slice(0, 3);
     if (actions.length === 0) throw new Error("Add at least one action.");
+    const images = normalizeImages(input.images);
     return {
       id: input.id?.trim() || undefined,
       categoryId,
@@ -427,21 +496,22 @@ export const saveService = createServerFn({ method: "POST" })
       published: Boolean(input.published),
       face,
       actions,
+      images,
     };
   })
   .handler(async ({ context, data }): Promise<Result<Service>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     const category = await sql<{ id: string }>`
-      select id from categories where id = ${data.categoryId} and owner_user_id = ${context.userId}
+      select id from categories where id = ${data.categoryId} and owner_user_id = ${DESK_OWNER}
     `;
     if (!category[0]) return { ok: false, error: "That category is not on this studio." };
 
     let id = data.id;
     if (id) {
       const existing = await sql<{ id: string }>`
-        select id from services where id = ${id} and owner_user_id = ${context.userId}
+        select id from services where id = ${id} and owner_user_id = ${DESK_OWNER}
       `;
       if (!existing[0]) return { ok: false, error: "That service is not yours." };
       await sql`
@@ -455,7 +525,7 @@ export const saveService = createServerFn({ method: "POST" })
             featured = ${data.featured},
             published = ${data.published},
             face = ${data.face}
-        where id = ${id} and owner_user_id = ${context.userId}
+        where id = ${id} and owner_user_id = ${DESK_OWNER}
       `;
       await sql`delete from service_actions where service_id = ${id}`;
     } else {
@@ -468,7 +538,7 @@ export const saveService = createServerFn({ method: "POST" })
           id, owner_user_id, category_id, name, slug, summary, story,
           price_label, duration_label, featured, published, face, sort_order
         ) values (
-          ${id}, ${context.userId}, ${data.categoryId}, ${data.name}, ${slug}, ${data.summary}, ${data.story},
+          ${id}, ${DESK_OWNER}, ${data.categoryId}, ${data.name}, ${slug}, ${data.summary}, ${data.story},
           ${data.priceLabel}, ${data.durationLabel}, ${data.featured}, ${data.published}, ${data.face}, ${sortOrder}
         )
       `;
@@ -482,6 +552,8 @@ export const saveService = createServerFn({ method: "POST" })
       `;
     }
 
+    await writeImages(sql, id, data.images);
+
     const services = await readServices(sql, false);
     const saved = services.find((service) => service.id === id);
     if (!saved) return { ok: false, error: "Saved, but the service could not be reloaded." };
@@ -489,21 +561,21 @@ export const saveService = createServerFn({ method: "POST" })
   });
 
 export const deleteService = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((id: string) => id.trim())
   .handler(async ({ context, data: id }): Promise<Result<true>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
-    await sql`delete from services where id = ${id} and owner_user_id = ${context.userId}`;
+    await sql`delete from services where id = ${id} and owner_user_id = ${DESK_OWNER}`;
     return { ok: true, data: true };
   });
 
 export const getInquiries = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .handler(async ({ context }): Promise<Result<Inquiry[]>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
     const rows = await sql<{
       id: string;
@@ -537,16 +609,12 @@ export const getInquiries = createServerFn({ method: "GET" })
   });
 
 export const deleteInquiry = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([deskGate])
   .validator((id: string) => id.trim())
   .handler(async ({ context, data: id }): Promise<Result<true>> => {
     const sql = await getSql();
-    const claimed = await claimOwner(sql, context.userId);
+    const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
-    const studio = await readStudio(sql);
-    if (studio.owner_user_id !== context.userId) {
-      return { ok: false, error: "This studio already has an owner account." };
-    }
     await sql`delete from inquiries where id = ${id}`;
     return { ok: true, data: true };
   });

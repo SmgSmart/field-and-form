@@ -45,6 +45,7 @@ export type Service = {
   face: Face;
   sortOrder: number;
   actions: ServiceAction[];
+  imageIds: string[];
 };
 
 export type Inquiry = {
@@ -69,6 +70,11 @@ export type AdminState = Catalog & {
   inquiryCount: number;
 };
 
+export type DraftImage = {
+  id?: string;
+  dataUrl?: string;
+};
+
 export type ServiceDraft = {
   id?: string;
   categoryId: string;
@@ -81,6 +87,7 @@ export type ServiceDraft = {
   published: boolean;
   face: Face;
   actions: { label: string; kind: ActionKind }[];
+  images: DraftImage[];
 };
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };

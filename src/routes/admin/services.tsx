@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { ServiceFace } from "@/components/service-face";
+import { ServiceFace, ServiceMark } from "@/components/service-face";
 import { deleteCategory, deleteService, saveCategory, saveService } from "@/lib/studio.functions";
 import { FACES, ACTION_KINDS, type ActionKind, type Service, type ServiceDraft } from "@/lib/studio.types";
 import { cn } from "@/lib/cn";
-import { useAdmin } from "./route";
+import { useAdmin } from "./-desk-context";
 
 export const Route = createFileRoute("/admin/services")({
   component: CatalogPage,
@@ -21,7 +21,14 @@ const emptyDraft = (categoryId: string): ServiceDraft => ({
   published: true,
   face: "arc",
   actions: [{ label: "Request this", kind: "inquire" }],
+  images: [],
 });
+
+type Photo = { key: string; id?: string; dataUrl?: string; preview: string };
+
+function photosFrom(service: Service): Photo[] {
+  return service.imageIds.map((id) => ({ key: id, id, preview: `/api/media/${id}` }));
+}
 
 function CatalogPage() {
   const { state, reload } = useAdmin();
@@ -29,6 +36,7 @@ function CatalogPage() {
   const [categoryBlurb, setCategoryBlurb] = useState("");
   const [categoryError, setCategoryError] = useState("");
   const [draft, setDraft] = useState<ServiceDraft>(emptyDraft(state.categories[0]?.id ?? ""));
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [serviceError, setServiceError] = useState("");
   const [notice, setNotice] = useState("");
   const { pending, run } = useWait();
@@ -76,10 +84,35 @@ function CatalogPage() {
       published: service.published,
       face: service.face,
       actions: service.actions.map((action) => ({ label: action.label, kind: action.kind })),
+      images: [],
     });
+    setPhotos(photosFrom(service));
     setServiceError("");
     setNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function resetDraft() {
+    setDraft(emptyDraft(draft.categoryId || state.categories[0]?.id || ""));
+    setPhotos([]);
+  }
+
+  async function addPhotos(files: File[]) {
+    const room = 3 - photos.length;
+    if (room <= 0 || files.length === 0) return;
+    setServiceError("");
+    const chosen = files.slice(0, room);
+    const added: Photo[] = [];
+    for (const file of chosen) {
+      try {
+        const dataUrl = await compressImage(file);
+        added.push({ key: crypto.randomUUID(), dataUrl, preview: dataUrl });
+      } catch (cause) {
+        setServiceError(cause instanceof Error ? cause.message : "Could not read that photo.");
+      }
+    }
+    setPhotos((current) => [...current, ...added].slice(0, 3));
+    if (files.length > room) setNotice("Three photos is the maximum. Extra ones were left out.");
   }
 
   async function onSaveService(event: FormEvent) {
@@ -87,13 +120,19 @@ function CatalogPage() {
     setServiceError("");
     await run(async () => {
       try {
-        const result = await saveService({ data: draft });
+        const result = await saveService({
+          data: {
+            ...draft,
+            images: photos.map((photo) => ({ id: photo.id, dataUrl: photo.dataUrl })),
+          },
+        });
         if (!result.ok) {
           setServiceError(result.error);
           return;
         }
         setNotice(draft.id ? `Updated ${result.data.name}.` : `Added ${result.data.name} to the site.`);
         setDraft(emptyDraft(draft.categoryId));
+        setPhotos([]);
         await reload();
       } catch (cause) {
         setServiceError(cause instanceof Error ? cause.message : "Could not save the service.");
@@ -109,7 +148,10 @@ function CatalogPage() {
         setServiceError(result.error);
         return;
       }
-      if (draft.id === service.id) setDraft(emptyDraft(state.categories[0]?.id ?? ""));
+      if (draft.id === service.id) {
+        setDraft(emptyDraft(state.categories[0]?.id ?? ""));
+        setPhotos([]);
+      }
       await reload();
     });
   }
@@ -161,7 +203,7 @@ function CatalogPage() {
             <button
               type="button"
               className="text-sm text-muted"
-              onClick={() => setDraft(emptyDraft(state.categories[0]?.id ?? ""))}
+              onClick={resetDraft}
             >
               Start a new one
             </button>
@@ -194,6 +236,75 @@ function CatalogPage() {
               className="w-full rounded-xl bg-bone px-3 py-3 text-base font-normal shadow-card outline-none"
             />
           </label>
+          <div
+            className="rounded-2xl bg-bone p-4"
+            onPaste={(event) => {
+              const files = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
+              if (files.length === 0) return;
+              event.preventDefault();
+              void addPhotos(files);
+            }}
+          >
+            <p className="text-sm font-medium">Photos</p>
+            <p className="mt-1 text-sm text-muted">
+              Add one, two, or three. The first is the lead photo on the cards and the service page.
+            </p>
+            {photos.length > 0 ? (
+              <ul className="mt-3 grid grid-cols-3 gap-3">
+                {photos.map((photo, index) => (
+                  <li key={photo.key} className="min-w-0">
+                    <img src={photo.preview} alt="" className="h-24 w-full rounded-2xl bg-field object-cover sm:h-28" />
+                    <div className="mt-1 flex flex-col">
+                      {index === 0 ? (
+                        <span className="flex h-11 items-center text-sm text-copper">Lead</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="h-11 text-left text-sm font-medium"
+                          onClick={() =>
+                            setPhotos((current) => {
+                              const next = current.slice();
+                              const [item] = next.splice(index, 1);
+                              next.unshift(item);
+                              return next;
+                            })
+                          }
+                        >
+                          Make lead
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="h-11 text-left text-sm text-copper"
+                        onClick={() => setPhotos((current) => current.filter((item) => item.key !== photo.key))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {photos.length >= 3 ? (
+              <p className="mt-3 text-sm font-medium">Three photos added</p>
+            ) : (
+              <label className="relative mt-3 inline-flex h-12 cursor-pointer items-center overflow-hidden rounded-full bg-ink px-5 text-sm font-medium text-bone">
+                <span>{photos.length === 0 ? "Add a photo" : "Add another photo"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={pending}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  onChange={(event) => {
+                    const files = [...(event.target.files ?? [])];
+                    event.target.value = "";
+                    void addPhotos(files);
+                  }}
+                />
+              </label>
+            )}
+          </div>
           <label className="block space-y-1 text-sm font-medium">
             The longer note on the service page
             <textarea
@@ -321,13 +432,18 @@ function CatalogPage() {
         <ul className="mt-4 space-y-3">
           {state.services.map((service) => (
             <li key={service.id} className="flex items-center gap-3 rounded-3xl bg-paper p-2 shadow-card">
-              <ServiceFace face={service.face} className="size-16 shrink-0 rounded-2xl" />
+              <ServiceMark
+                face={service.face}
+                imageId={service.imageIds[0]}
+                className="size-16 shrink-0 rounded-2xl"
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{service.name}</p>
                 <p className="truncate text-sm text-muted">
                   {service.categoryName}
                   {service.published ? "" : " · hidden"}
                   {service.featured ? " · on main page" : ""}
+                  {service.imageIds.length ? ` · ${service.imageIds.length} photo${service.imageIds.length === 1 ? "" : "s"}` : ""}
                 </p>
               </div>
               <button type="button" onClick={() => editService(service)} className="h-11 px-2 text-sm font-medium">
@@ -342,6 +458,43 @@ function CatalogPage() {
       </section>
     </main>
   );
+}
+
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that photo."));
+    reader.onload = () => {
+      const source = new Image();
+      source.onload = () => {
+        const max = 1400;
+        const scale = Math.min(1, max / Math.max(source.width, source.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(source.width * scale));
+        canvas.height = Math.max(1, Math.round(source.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Could not read that photo."));
+          return;
+        }
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        let quality = 0.72;
+        let url = canvas.toDataURL("image/jpeg", quality);
+        while (url.length > 500_000 && quality > 0.45) {
+          quality -= 0.08;
+          url = canvas.toDataURL("image/jpeg", quality);
+        }
+        if (url.length > 700_000) {
+          reject(new Error("That photo is too large. Try a smaller one."));
+          return;
+        }
+        resolve(url);
+      };
+      source.onerror = () => reject(new Error("Use a JPEG, PNG, or WebP photo."));
+      source.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function Check({

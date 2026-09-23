@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { deleteInquiry, getInquiries } from "@/lib/studio.functions";
 import type { Inquiry } from "@/lib/studio.types";
-import { useAdmin } from "./route";
+import { useAdmin } from "./-desk-context";
 
 export const Route = createFileRoute("/admin/inquiries")({
   component: InquiriesPage,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ServiceFace } from "@/components/service-face";
+import { ServiceFace, ServiceMark } from "@/components/service-face";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { cn } from "@/lib/cn";
 import { getCatalog } from "@/lib/studio.functions";
@@ -65,7 +65,7 @@ function ServicesPage() {
                 params={{ slug: service.slug }}
                 className="block rounded-3xl bg-paper p-2 shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
               >
-                <ServiceFace face={service.face} className="h-36 rounded-2xl" />
+                <ServiceMark face={service.face} imageId={service.imageIds[0]} className="h-36 w-full rounded-2xl" />
                 <span className="block px-3 pb-3 pt-3">
                   <span className="text-sm text-copper">{service.categoryName}</span>
                   <span className="mt-1 block font-display text-2xl">{service.name}</span>

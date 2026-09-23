@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { UserButton } from "@/lib/auth/gates";
 import { saveStudio } from "@/lib/studio.functions";
 import type { Studio } from "@/lib/studio.types";
-import { useAdmin } from "./route";
+import { useAdmin } from "./-desk-context";
 
 export const Route = createFileRoute("/admin/")({
   component: IdentityPage,
@@ -45,14 +44,11 @@ function IdentityPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-4xl">The main page</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-            This is the name, headline, and contact on the public site. The starter house is Field & Form — replace it with yours. Sample services live under Services until you delete them.
-          </p>
-        </div>
-        <UserButton />
+      <div>
+        <h1 className="font-display text-4xl">The main page</h1>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+          This is the name, headline, and contact on the public site. The starter house is Field & Form — replace it with yours. Sample services live under Services until you delete them.
+        </p>
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">

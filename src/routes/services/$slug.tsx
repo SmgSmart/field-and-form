@@ -14,6 +14,7 @@ export const Route = createFileRoute("/services/$slug")({
 function ServicePage() {
   const { studio, service, related } = Route.useLoaderData();
   const [action, setAction] = useState<ServiceAction | null>(null);
+  const [shot, setShot] = useState(0);
 
   if (!service) {
     return (
@@ -46,13 +47,43 @@ function ServicePage() {
         >
           {service.categoryName}
         </Link>
-        <ServiceFace
-          face={service.face}
-          eyebrow={service.categoryName}
-          title={service.name}
-          titleAs="h1"
-          className="mt-2 h-80 rounded-3xl sm:h-96"
-        />
+        {service.imageIds.length > 0 ? (
+          <div className="mt-2">
+            <img
+              src={`/api/media/${service.imageIds[shot] ?? service.imageIds[0]}`}
+              alt={`${service.name}`}
+              className="h-80 w-full rounded-3xl bg-field object-cover sm:h-96"
+            />
+            {service.imageIds.length > 1 ? (
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {service.imageIds.map((id, index) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setShot(index)}
+                    aria-pressed={shot === index}
+                    className={
+                      shot === index
+                        ? "overflow-hidden rounded-2xl ring-2 ring-copper"
+                        : "overflow-hidden rounded-2xl ring-1 ring-line"
+                    }
+                  >
+                    <img src={`/api/media/${id}`} alt="" className="h-20 w-full object-cover sm:h-24" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <h1 className="mt-5 font-display text-4xl sm:text-5xl">{service.name}</h1>
+          </div>
+        ) : (
+          <ServiceFace
+            face={service.face}
+            eyebrow={service.categoryName}
+            title={service.name}
+            titleAs="h1"
+            className="mt-2 h-80 rounded-3xl sm:h-96"
+          />
+        )}
         <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
           {service.priceLabel ? <p>{service.priceLabel}</p> : null}
           {service.durationLabel ? <p>{service.durationLabel}</p> : null}

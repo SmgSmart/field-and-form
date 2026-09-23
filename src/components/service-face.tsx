@@ -1,6 +1,19 @@
 import { cn } from "@/lib/cn";
 import type { Face } from "@/lib/studio.types";
 
+export function ServiceMark({
+  face,
+  imageId,
+  className,
+}: {
+  face: Face;
+  imageId?: string;
+  className?: string;
+}) {
+  if (!imageId) return <ServiceFace face={face} className={className} />;
+  return <img src={`/api/media/${imageId}`} alt="" className={cn("bg-field object-cover", className)} />;
+}
+
 export function ServiceFace({
   face,
   eyebrow,

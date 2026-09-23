@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
-import { ServiceFace } from "@/components/service-face";
+import { ServiceFace, ServiceMark } from "@/components/service-face";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { getCatalog } from "@/lib/studio.functions";
 import type { Face } from "@/lib/studio.types";
@@ -86,7 +86,11 @@ function Home() {
                   params={{ slug: service.slug }}
                   className="flex gap-3 rounded-3xl bg-paper p-2 shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
                 >
-                  <ServiceFace face={service.face} className="size-24 shrink-0 rounded-2xl" />
+                  <ServiceMark
+                    face={service.face}
+                    imageId={service.imageIds[0]}
+                    className="size-24 shrink-0 rounded-2xl"
+                  />
                   <span className="flex min-w-0 flex-1 flex-col justify-center py-1 pr-2">
                     <span className="text-sm text-copper">{service.categoryName}</span>
                     <span className="truncate font-display text-2xl">{service.name}</span>
