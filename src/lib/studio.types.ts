@@ -3,7 +3,7 @@ import type { ThemeTokens } from "@/lib/theme";
 export type { ThemeTokens };
 
 export const FACES = ["arc", "grid", "stripe", "ring"] as const;
-export const ACTION_KINDS = ["inquire", "quote", "call"] as const;
+export const ACTION_KINDS = ["inquire", "quote", "call", "whatsapp"] as const;
 
 export type Face = (typeof FACES)[number];
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -16,6 +16,7 @@ export type Studio = {
   city: string;
   email: string;
   phone: string;
+  whatsapp: string;
 };
 
 export type Category = {

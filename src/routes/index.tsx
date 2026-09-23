@@ -135,7 +135,7 @@ function Home() {
           className="h-56 rounded-3xl"
         />
       </div>
-      <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} />
+      <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} whatsapp={studio.whatsapp} />
     </div>
   );
 }

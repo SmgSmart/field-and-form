@@ -78,6 +78,14 @@ function IdentityPage() {
         <Field label="City" value={form.city} onChange={(city) => setForm({ ...form, city })} />
         <Field label="Phone" value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
         <Field
+          label="WhatsApp"
+          value={form.whatsapp}
+          onChange={(whatsapp) => setForm({ ...form, whatsapp })}
+        />
+        <p className="text-sm text-muted sm:col-span-2">
+          Include the country code, for example +233 24 000 0000. A service action set to WhatsApp opens a chat to this number.
+        </p>
+        <Field
           className="sm:col-span-2"
           label="Email"
           value={form.email}

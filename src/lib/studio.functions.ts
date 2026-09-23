@@ -27,6 +27,7 @@ type StudioRow = {
   city: string;
   email: string;
   phone: string;
+  whatsapp: string;
   owner_user_id: string | null;
 };
 
@@ -107,6 +108,7 @@ function mapStudio(row: StudioRow): Studio {
     city: row.city,
     email: row.email,
     phone: row.phone,
+    whatsapp: row.whatsapp ?? "",
   };
 }
 
@@ -152,7 +154,7 @@ function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[
 }
 
 async function readStudio(sql: Sql): Promise<StudioRow> {
-  const rows = await sql<StudioRow>`select name, kicker, headline, lede, city, email, phone, owner_user_id from studio where id = 1`;
+  const rows = await sql<StudioRow>`select name, kicker, headline, lede, city, email, phone, whatsapp, owner_user_id from studio where id = 1`;
   const row = rows[0];
   if (!row) throw new Error("Studio is not ready yet.");
   return row;
@@ -368,6 +370,7 @@ export const saveStudio = createServerFn({ method: "POST" })
       city: input.city?.trim().slice(0, 60) ?? "",
       email: input.email?.trim().slice(0, 120) ?? "",
       phone: input.phone?.trim().slice(0, 40) ?? "",
+      whatsapp: input.whatsapp?.trim().slice(0, 40) ?? "",
     } satisfies Studio;
   })
   .handler(async ({ context, data }): Promise<Result<Studio>> => {
@@ -384,6 +387,7 @@ export const saveStudio = createServerFn({ method: "POST" })
           city = ${data.city},
           email = ${data.email},
           phone = ${data.phone},
+          whatsapp = ${data.whatsapp},
           updated_at = now()
       where id = 1 and owner_user_id = ${DESK_OWNER}
     `;

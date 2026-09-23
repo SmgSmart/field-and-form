@@ -537,8 +537,14 @@ function CatalogPage() {
                 <select
                   value={action.kind}
                   onChange={(event) => {
+                    const kind = event.target.value as ActionKind;
                     const actions = draft.actions.slice();
-                    actions[index] = { ...action, kind: event.target.value as ActionKind };
+                    const stock = action.label === "Request this" || action.label === "Ask for a quote" || action.label === "Call";
+                    actions[index] = {
+                      ...action,
+                      kind,
+                      label: kind === "whatsapp" && stock ? "WhatsApp" : action.label,
+                    };
                     setDraft({ ...draft, actions });
                   }}
                   aria-label={`Action ${index + 1} kind`}
@@ -546,7 +552,7 @@ function CatalogPage() {
                 >
                   {ACTION_KINDS.map((kind) => (
                     <option key={kind} value={kind}>
-                      {kind === "inquire" ? "Request form" : kind === "quote" ? "Quote form" : "Call"}
+                      {kind === "inquire" ? "Request form" : kind === "quote" ? "Quote form" : kind === "call" ? "Call" : "WhatsApp"}
                     </option>
                   ))}
                 </select>

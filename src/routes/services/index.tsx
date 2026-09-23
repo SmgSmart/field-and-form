@@ -96,7 +96,7 @@ function ServicesPage() {
           <p className="mt-8 text-muted">Nothing is published in this category yet.</p>
         ) : null}
       </main>
-      <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} />
+      <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} whatsapp={studio.whatsapp} />
     </div>
   );
 }

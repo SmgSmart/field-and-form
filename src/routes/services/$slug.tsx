@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { InquiryDialog } from "@/components/inquiry-dialog";
 import { ServiceFace } from "@/components/service-face";
-import { SiteFooter, SiteHeader } from "@/components/site-header";
+import { SiteFooter, SiteHeader, whatsappLink } from "@/components/site-header";
 import { getService } from "@/lib/studio.functions";
 import type { ServiceAction } from "@/lib/studio.types";
 
@@ -35,6 +35,7 @@ function ServicePage() {
   }
 
   const phoneHref = studio.phone ? `tel:${studio.phone.replace(/[^\d+]/g, "")}` : "";
+  const whatsappHref = whatsappLink(studio.whatsapp, `Hello, I would like to ask about ${service.name}.`);
 
   return (
     <div className="min-h-screen bg-bone text-ink">
@@ -108,6 +109,13 @@ function ServicePage() {
                   </a>
                 );
               }
+              if (item.kind === "whatsapp" && whatsappHref) {
+                return (
+                  <a key={item.id} href={whatsappHref} target="_blank" rel="noreferrer" className={className}>
+                    {item.label}
+                  </a>
+                );
+              }
               return (
                 <button key={item.id} type="button" className={className} onClick={() => setAction(item)}>
                   {item.label}
@@ -137,7 +145,13 @@ function ServicePage() {
           </section>
         ) : null}
       </main>
-      <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} />
+      <SiteFooter
+        name={studio.name}
+        city={studio.city}
+        email={studio.email}
+        phone={studio.phone}
+        whatsapp={studio.whatsapp}
+      />
       <InquiryDialog
         open={action !== null}
         serviceId={service.id}
