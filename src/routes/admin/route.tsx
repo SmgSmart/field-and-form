@@ -126,6 +126,7 @@ function AdminShell({ onSignOut }: { onSignOut: () => Promise<void> }) {
         <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-5 pb-3">
           <DeskTab to="/admin" label="Main page" />
           <DeskTab to="/admin/services" label="Services" />
+          <DeskTab to="/admin/theme" label="Appearance" />
           <DeskTab to="/admin/inquiries" label="Inquiries" />
           <Link
             to="/"
@@ -140,7 +141,13 @@ function AdminShell({ onSignOut }: { onSignOut: () => Promise<void> }) {
   );
 }
 
-function DeskTab({ to, label }: { to: "/admin" | "/admin/services" | "/admin/inquiries"; label: string }) {
+function DeskTab({
+  to,
+  label,
+}: {
+  to: "/admin" | "/admin/services" | "/admin/theme" | "/admin/inquiries";
+  label: string;
+}) {
   return (
     <Link
       to={to}

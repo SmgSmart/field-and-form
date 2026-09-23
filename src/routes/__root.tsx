@@ -1,11 +1,14 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { getTheme } from "@/lib/studio.functions";
+import { themeVars } from "@/lib/theme";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Field & Form";
 
 export const Route = createRootRoute({
+  loader: () => getTheme(),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -24,14 +27,19 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Outfit:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Libre+Baskerville:wght@400;700&family=Outfit:wght@400;500;600&display=swap",
       },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
     ],
   }),
-  component: () => (
-    <html lang="en" suppressHydrationWarning>
+  component: Root,
+});
+
+function Root() {
+  const theme = Route.useLoaderData();
+  return (
+    <html lang="en" data-look={theme.look} style={themeVars(theme)} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -43,5 +51,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { deskGate } from "@/lib/desk-middleware";
+import { resolveTheme, sanitizeTheme, type ThemeTokens } from "@/lib/theme";
 import {
   ACTION_KINDS,
   FACES,
@@ -157,6 +158,11 @@ async function readStudio(sql: Sql): Promise<StudioRow> {
   return row;
 }
 
+async function readAppearance(sql: Sql): Promise<ThemeTokens> {
+  const rows = await sql<{ theme: string | null }>`select theme from studio where id = 1`;
+  return resolveTheme(rows[0]?.theme);
+}
+
 async function readCategories(sql: Sql): Promise<Category[]> {
   const rows = await sql<CategoryRow>`
     select c.id, c.name, c.slug, c.blurb, c.sort_order, i.id as image_id
@@ -259,6 +265,26 @@ async function uniqueSlug(
   }
 }
 
+export const getTheme = createServerFn({ method: "GET" }).handler(async (): Promise<ThemeTokens> => {
+  try {
+    const sql = await getSql();
+    return await readAppearance(sql);
+  } catch {
+    return resolveTheme("field");
+  }
+});
+
+export const saveTheme = createServerFn({ method: "POST" })
+  .middleware([deskGate])
+  .validator((input: ThemeTokens) => sanitizeTheme(input))
+  .handler(async ({ context, data }): Promise<Result<ThemeTokens>> => {
+    const sql = await getSql();
+    const claimed = await requireDesk(sql, context.deskSignedIn);
+    if (!claimed.ok) return claimed;
+    await sql`update studio set theme = ${JSON.stringify(data)}, updated_at = now() where id = 1`;
+    return { ok: true, data };
+  });
+
 export const getCatalog = createServerFn({ method: "GET" }).handler(async (): Promise<Catalog> => {
   const sql = await getSql();
   const studio = mapStudio(await readStudio(sql));
@@ -324,6 +350,7 @@ export const getAdminState = createServerFn({ method: "GET" })
         services,
         ownerSet: Boolean(studioRow.owner_user_id),
         inquiryCount: asNum(counts[0]?.count),
+        theme: await readAppearance(sql),
       },
     };
   });

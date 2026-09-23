@@ -113,3 +113,69 @@ dialog::backdrop {
     animation: none;
   }
 }
+
+html[data-look="classic"] {
+  --font-sans: "Libre Baskerville", Georgia, serif;
+  --font-display: "Libre Baskerville", Georgia, serif;
+}
+
+html[data-look="classic"] .rounded-3xl,
+html[data-look="classic"] .rounded-2xl,
+html[data-look="classic"] .rounded-xl {
+  border-radius: 2px;
+}
+
+html[data-look="classic"] .shadow-card,
+html[data-look="classic"] .shadow-card-hover {
+  box-shadow: none;
+  outline: 1px solid var(--color-line);
+}
+
+html[data-look="classic"] .font-display {
+  font-weight: 400;
+}
+
+html[data-look="glass"] {
+  background:
+    radial-gradient(880px 420px at 0% -8%, color-mix(in srgb, var(--color-copper) 34%, transparent), transparent 68%),
+    radial-gradient(720px 460px at 100% 0%, color-mix(in srgb, var(--color-field) 20%, transparent), transparent 64%),
+    var(--color-bone);
+}
+
+html[data-look="glass"] .min-h-screen.bg-bone {
+  background-color: transparent;
+}
+
+html[data-look="glass"] .bg-paper {
+  background-color: color-mix(in srgb, var(--color-paper) 68%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-look="glass"] .shadow-card,
+html[data-look="glass"] .shadow-card-hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-ink) 12%, transparent),
+    0 22px 44px -30px color-mix(in srgb, var(--color-ink) 50%, transparent);
+}
+
+html[data-look="bold"] {
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-look="bold"] .rounded-3xl,
+html[data-look="bold"] .rounded-2xl,
+html[data-look="bold"] .rounded-xl {
+  border-radius: 0;
+}
+
+html[data-look="bold"] .shadow-card,
+html[data-look="bold"] .shadow-card-hover {
+  box-shadow: 5px 5px 0 0 var(--color-ink);
+}
+
+html[data-look="bold"] .font-display {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+

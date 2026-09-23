@@ -1,3 +1,7 @@
+import type { ThemeTokens } from "@/lib/theme";
+
+export type { ThemeTokens };
+
 export const FACES = ["arc", "grid", "stripe", "ring"] as const;
 export const ACTION_KINDS = ["inquire", "quote", "call"] as const;
 
@@ -69,6 +73,7 @@ export type Catalog = {
 export type AdminState = Catalog & {
   ownerSet: boolean;
   inquiryCount: number;
+  theme: ThemeTokens;
 };
 
 export type DraftImage = {
