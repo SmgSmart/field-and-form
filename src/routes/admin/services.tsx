@@ -39,6 +39,7 @@ function CatalogPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [serviceError, setServiceError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirming, setConfirming] = useState<{ kind: "category" | "service"; id: string } | null>(null);
   const { pending, run } = useWait();
 
   async function addCategory(event: FormEvent) {
@@ -59,15 +60,24 @@ function CatalogPage() {
   }
 
   async function removeCategory(id: string, name: string) {
-    if (!window.confirm(`Delete ${name}?`)) return;
     setCategoryError("");
+    setConfirming(null);
     await run(async () => {
-      const result = await deleteCategory({ data: id });
-      if (!result.ok) {
-        setCategoryError(result.error);
-        return;
+      try {
+        const result = await deleteCategory({ data: id });
+        if (!result.ok) {
+          setCategoryError(result.error);
+          return;
+        }
+        if (draft.categoryId === id) {
+          const next = state.categories.find((category) => category.id !== id);
+          setDraft((current) => ({ ...current, categoryId: next?.id ?? "" }));
+        }
+        setNotice(`Deleted ${name}.`);
+        await reload();
+      } catch (cause) {
+        setCategoryError(cause instanceof Error ? cause.message : "Could not delete that category.");
       }
-      await reload();
     });
   }
 
@@ -141,18 +151,24 @@ function CatalogPage() {
   }
 
   async function removeService(service: Service) {
-    if (!window.confirm(`Delete ${service.name}?`)) return;
+    setServiceError("");
+    setConfirming(null);
     await run(async () => {
-      const result = await deleteService({ data: service.id });
-      if (!result.ok) {
-        setServiceError(result.error);
-        return;
+      try {
+        const result = await deleteService({ data: service.id });
+        if (!result.ok) {
+          setServiceError(result.error);
+          return;
+        }
+        if (draft.id === service.id) {
+          setDraft(emptyDraft(state.categories[0]?.id ?? ""));
+          setPhotos([]);
+        }
+        setNotice(`Deleted ${service.name}.`);
+        await reload();
+      } catch (cause) {
+        setServiceError(cause instanceof Error ? cause.message : "Could not delete that service.");
       }
-      if (draft.id === service.id) {
-        setDraft(emptyDraft(state.categories[0]?.id ?? ""));
-        setPhotos([]);
-      }
-      await reload();
     });
   }
 
@@ -166,21 +182,54 @@ function CatalogPage() {
       <section className="mt-8">
         <h2 className="font-display text-2xl">Categories</h2>
         <ul className="mt-3 divide-y divide-line border-y border-line">
-          {state.categories.map((category) => (
-            <li key={category.id} className="flex items-center gap-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{category.name}</p>
-                <p className="truncate text-sm text-muted">{category.blurb}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeCategory(category.id, category.name)}
-                className="h-11 shrink-0 px-2 text-sm text-copper"
-              >
-                Delete
-              </button>
-            </li>
-          ))}
+          {state.categories.map((category) => {
+            const asking = confirming?.kind === "category" && confirming.id === category.id;
+            const count = state.services.filter((service) => service.categoryId === category.id).length;
+            return (
+              <li key={category.id} className="flex items-center gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{category.name}</p>
+                  {asking ? (
+                    <p className="text-sm text-copper">
+                      {count
+                        ? `Delete ${category.name} and its ${count} service${count === 1 ? "" : "s"}?`
+                        : `Delete ${category.name}?`}
+                    </p>
+                  ) : (
+                    <p className="truncate text-sm text-muted">{category.blurb}</p>
+                  )}
+                </div>
+                {asking ? (
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => removeCategory(category.id, category.name)}
+                      className="h-11 rounded-full bg-copper px-3 text-sm font-medium text-bone disabled:opacity-60"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => setConfirming(null)}
+                      className="h-11 px-3 text-sm"
+                    >
+                      Keep
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirming({ kind: "category", id: category.id })}
+                    className="h-11 shrink-0 px-2 text-sm text-copper"
+                  >
+                    Delete
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
         <form onSubmit={addCategory} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
           <Field label="New category" value={categoryName} onChange={setCategoryName} />
@@ -429,31 +478,56 @@ function CatalogPage() {
 
       <section className="mt-10">
         <h2 className="font-display text-2xl">Listed</h2>
+        {serviceError ? <p className="mt-2 text-sm text-copper">{serviceError}</p> : null}
         <ul className="mt-4 space-y-3">
-          {state.services.map((service) => (
-            <li key={service.id} className="flex items-center gap-3 rounded-3xl bg-paper p-2 shadow-card">
-              <ServiceMark
-                face={service.face}
-                imageId={service.imageIds[0]}
-                className="size-16 shrink-0 rounded-2xl"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{service.name}</p>
-                <p className="truncate text-sm text-muted">
-                  {service.categoryName}
-                  {service.published ? "" : " · hidden"}
-                  {service.featured ? " · on main page" : ""}
-                  {service.imageIds.length ? ` · ${service.imageIds.length} photo${service.imageIds.length === 1 ? "" : "s"}` : ""}
-                </p>
-              </div>
-              <button type="button" onClick={() => editService(service)} className="h-11 px-2 text-sm font-medium">
-                Edit
-              </button>
-              <button type="button" onClick={() => removeService(service)} className="h-11 px-2 text-sm text-copper">
-                Delete
-              </button>
-            </li>
-          ))}
+          {state.services.map((service) => {
+            const asking = confirming?.kind === "service" && confirming.id === service.id;
+            return (
+              <li key={service.id} className="flex items-center gap-3 rounded-3xl bg-paper p-2 shadow-card">
+                <ServiceMark
+                  face={service.face}
+                  imageId={service.imageIds[0]}
+                  className="size-16 shrink-0 rounded-2xl"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{service.name}</p>
+                  <p className="truncate text-sm text-muted">
+                    {asking
+                      ? `Delete ${service.name}?`
+                      : `${service.categoryName}${service.published ? "" : " · hidden"}${service.featured ? " · on main page" : ""}${service.imageIds.length ? ` · ${service.imageIds.length} photo${service.imageIds.length === 1 ? "" : "s"}` : ""}`}
+                  </p>
+                </div>
+                {asking ? (
+                  <div className="flex shrink-0 flex-col">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => removeService(service)}
+                      className="h-11 rounded-full bg-copper px-3 text-sm font-medium text-bone disabled:opacity-60"
+                    >
+                      Delete
+                    </button>
+                    <button type="button" disabled={pending} onClick={() => setConfirming(null)} className="h-11 px-3 text-sm">
+                      Keep
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex shrink-0 flex-col">
+                    <button type="button" onClick={() => editService(service)} className="h-11 px-2 text-sm font-medium">
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming({ kind: "service", id: service.id })}
+                      className="h-11 px-2 text-sm text-copper"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </main>

@@ -404,6 +404,14 @@ export const saveCategory = createServerFn({ method: "POST" })
     };
   });
 
+async function removeServiceRow(sql: Sql, id: string): Promise<boolean> {
+  await sql`delete from service_images where service_id = ${id}`;
+  await sql`delete from service_actions where service_id = ${id}`;
+  await sql`update inquiries set service_id = null where service_id = ${id}`;
+  const rows = await sql<{ id: string }>`delete from services where id = ${id} returning id`;
+  return Boolean(rows[0]);
+}
+
 export const deleteCategory = createServerFn({ method: "POST" })
   .middleware([deskGate])
   .validator((id: string) => id.trim())
@@ -411,9 +419,10 @@ export const deleteCategory = createServerFn({ method: "POST" })
     const sql = await getSql();
     const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
-    const used = await sql<{ id: string }>`select id from services where category_id = ${id} limit 1`;
-    if (used[0]) return { ok: false, error: "Move or delete the services in this category first." };
-    await sql`delete from categories where id = ${id} and owner_user_id = ${DESK_OWNER}`;
+    const services = await sql<{ id: string }>`select id from services where category_id = ${id}`;
+    for (const service of services) await removeServiceRow(sql, service.id);
+    const removed = await sql<{ id: string }>`delete from categories where id = ${id} returning id`;
+    if (!removed[0]) return { ok: false, error: "That category could not be removed." };
     return { ok: true, data: true };
   });
 
@@ -567,7 +576,8 @@ export const deleteService = createServerFn({ method: "POST" })
     const sql = await getSql();
     const claimed = await requireDesk(sql, context.deskSignedIn);
     if (!claimed.ok) return claimed;
-    await sql`delete from services where id = ${id} and owner_user_id = ${DESK_OWNER}`;
+    const removed = await removeServiceRow(sql, id);
+    if (!removed) return { ok: false, error: "That service could not be removed." };
     return { ok: true, data: true };
   });
 
