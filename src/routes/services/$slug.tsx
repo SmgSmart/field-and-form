@@ -156,6 +156,7 @@ function ServicePage() {
         open={action !== null}
         serviceId={service.id}
         action={action}
+        devices={service.devices}
         onClose={() => setAction(null)}
       />
     </div>

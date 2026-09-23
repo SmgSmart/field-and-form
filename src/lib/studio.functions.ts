@@ -132,7 +132,7 @@ function mapAction(row: ActionRow): ServiceAction {
   };
 }
 
-function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[]): Service {
+function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[], devices: string[]): Service {
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -150,6 +150,7 @@ function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[
     sortOrder: asNum(row.sort_order),
     actions,
     imageIds,
+    devices,
   };
 }
 
@@ -232,7 +233,28 @@ async function readServices(sql: Sql, publishedOnly: boolean): Promise<Service[]
     list.push(image.id);
     imagesByService.set(image.service_id, list);
   }
-  return rows.map((row) => mapService(row, byService.get(row.id) ?? [], imagesByService.get(row.id) ?? []));
+  const deviceRows = publishedOnly
+    ? await sql<{ service_id: string; name: string }>`
+        select d.service_id, d.name
+        from service_devices d
+        join services s on s.id = d.service_id
+        where s.published = true
+        order by d.sort_order, d.name
+      `
+    : await sql<{ service_id: string; name: string }>`
+        select service_id, name
+        from service_devices
+        order by sort_order, name
+      `;
+  const devicesByService = new Map<string, string[]>();
+  for (const device of deviceRows) {
+    const list = devicesByService.get(device.service_id) ?? [];
+    list.push(device.name);
+    devicesByService.set(device.service_id, list);
+  }
+  return rows.map((row) =>
+    mapService(row, byService.get(row.id) ?? [], imagesByService.get(row.id) ?? [], devicesByService.get(row.id) ?? []),
+  );
 }
 
 const DESK_OWNER = "desk";
@@ -309,16 +331,17 @@ export const getService = createServerFn({ method: "GET" })
   });
 
 export const submitInquiry = createServerFn({ method: "POST" })
-  .validator((input: { serviceId: string; actionLabel: string; name: string; contact: string; note: string }) => {
+  .validator((input: { serviceId: string; actionLabel: string; name: string; contact: string; note: string; device?: string }) => {
     const name = input.name?.trim().slice(0, 80) ?? "";
     const contact = input.contact?.trim().slice(0, 120) ?? "";
     const note = input.note?.trim().slice(0, 1000) ?? "";
+    const device = input.device?.trim().slice(0, 80) ?? "";
     const actionLabel = input.actionLabel?.trim().slice(0, 80) ?? "";
     const serviceId = input.serviceId?.trim() ?? "";
     if (!name) throw new Error("Add your name.");
     if (!contact) throw new Error("Add a phone or email.");
     if (!serviceId) throw new Error("Choose a service first.");
-    return { serviceId, actionLabel, name, contact, note };
+    return { serviceId, actionLabel, name, contact, note, device };
   })
   .handler(async ({ data }): Promise<Result<true>> => {
     const sql = await getSql();
@@ -326,10 +349,16 @@ export const submitInquiry = createServerFn({ method: "POST" })
       select id from services where id = ${data.serviceId} and published = true
     `;
     if (!found[0]) return { ok: false, error: "That service is not open." };
+    const devices = await sql<{ name: string }>`
+      select name from service_devices where service_id = ${data.serviceId} order by sort_order, name
+    `;
+    if (devices.length > 0 && !devices.some((row) => row.name === data.device)) {
+      return { ok: false, error: "Choose a device." };
+    }
     const id = crypto.randomUUID();
     await sql`
-      insert into inquiries (id, service_id, action_label, name, contact, note)
-      values (${id}, ${data.serviceId}, ${data.actionLabel}, ${data.name}, ${data.contact}, ${data.note})
+      insert into inquiries (id, service_id, action_label, name, contact, note, device)
+      values (${id}, ${data.serviceId}, ${data.actionLabel}, ${data.name}, ${data.contact}, ${data.note}, ${data.device})
     `;
     return { ok: true, data: true };
   });
@@ -563,6 +592,10 @@ export const saveService = createServerFn({ method: "POST" })
       .slice(0, 3);
     if (actions.length === 0) throw new Error("Add at least one action.");
     const images = normalizeImages(input.images);
+    const devices = (input.devices ?? [])
+      .map((device) => device.trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, 24);
     return {
       id: input.id?.trim() || undefined,
       categoryId,
@@ -576,6 +609,7 @@ export const saveService = createServerFn({ method: "POST" })
       face,
       actions,
       images,
+      devices,
     };
   })
   .handler(async ({ context, data }): Promise<Result<Service>> => {
@@ -632,6 +666,13 @@ export const saveService = createServerFn({ method: "POST" })
     }
 
     await writeImages(sql, id, data.images);
+    await sql`delete from service_devices where service_id = ${id}`;
+    for (let i = 0; i < data.devices.length; i += 1) {
+      await sql`
+        insert into service_devices (id, service_id, name, sort_order)
+        values (${crypto.randomUUID()}, ${id}, ${data.devices[i]}, ${i + 1})
+      `;
+    }
 
     const services = await readServices(sql, false);
     const saved = services.find((service) => service.id === id);
@@ -665,9 +706,10 @@ export const getInquiries = createServerFn({ method: "GET" })
       name: string;
       contact: string;
       note: string;
+      device: string;
       created_at: unknown;
     }>`
-      select i.id, i.service_id, s.name as service_name, i.action_label, i.name, i.contact, i.note, i.created_at
+      select i.id, i.service_id, s.name as service_name, i.action_label, i.name, i.contact, i.note, i.device, i.created_at
       from inquiries i
       left join services s on s.id = i.service_id
       order by i.created_at desc
@@ -683,6 +725,7 @@ export const getInquiries = createServerFn({ method: "GET" })
         name: row.name,
         contact: row.contact,
         note: row.note,
+        device: row.device ?? "",
         createdAt: asIso(row.created_at),
       })),
     };

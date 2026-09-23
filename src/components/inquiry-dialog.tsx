@@ -6,11 +6,13 @@ export function InquiryDialog({
   open,
   serviceId,
   action,
+  devices = [],
   onClose,
 }: {
   open: boolean;
   serviceId: string;
   action: ServiceAction | null;
+  devices?: string[];
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -18,6 +20,7 @@ export function InquiryDialog({
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [note, setNote] = useState("");
+  const [device, setDevice] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
@@ -34,6 +37,7 @@ export function InquiryDialog({
       setName("");
       setContact("");
       setNote("");
+      setDevice("");
       setError("");
       setDone(false);
       setPending(false);
@@ -53,6 +57,7 @@ export function InquiryDialog({
           name,
           contact,
           note,
+          device,
         },
       });
       if (!result.ok) {
@@ -120,6 +125,24 @@ export function InquiryDialog({
                 className="w-full rounded-xl bg-bone px-3 py-3 text-base font-normal shadow-card outline-none"
               />
             </label>
+            {devices.length > 0 ? (
+              <label className="block space-y-1 text-sm font-medium">
+                Device
+                <select
+                  required
+                  value={device}
+                  onChange={(event) => setDevice(event.target.value)}
+                  className="h-12 w-full rounded-xl bg-bone px-3 text-base font-normal shadow-card outline-none"
+                >
+                  <option value="">Choose a device</option>
+                  {devices.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {error ? <p className="text-sm text-copper">{error}</p> : null}
           </>
         )}

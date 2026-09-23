@@ -52,6 +52,7 @@ export type Service = {
   sortOrder: number;
   actions: ServiceAction[];
   imageIds: string[];
+  devices: string[];
 };
 
 export type Inquiry = {
@@ -62,6 +63,7 @@ export type Inquiry = {
   name: string;
   contact: string;
   note: string;
+  device: string;
   createdAt: string;
 };
 
@@ -95,6 +97,7 @@ export type ServiceDraft = {
   face: Face;
   actions: { label: string; kind: ActionKind }[];
   images: DraftImage[];
+  devices: string[];
 };
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };

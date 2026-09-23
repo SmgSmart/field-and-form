@@ -22,6 +22,7 @@ const emptyDraft = (categoryId: string): ServiceDraft => ({
   face: "arc",
   actions: [{ label: "Request this", kind: "inquire" }],
   images: [],
+  devices: [],
 });
 
 type Photo = { key: string; id?: string; dataUrl?: string; preview: string };
@@ -141,6 +142,7 @@ function CatalogPage() {
       face: service.face,
       actions: service.actions.map((action) => ({ label: action.label, kind: action.kind })),
       images: [],
+      devices: service.devices,
     });
     setPhotos(photosFrom(service));
     setServiceError("");
@@ -580,6 +582,43 @@ function CatalogPage() {
                 }
               >
                 Add an action
+              </button>
+            ) : null}
+          </fieldset>
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium">Devices for a request</legend>
+            <p className="text-sm text-muted">
+              Add every device this service covers. The request form asks the visitor to choose one.
+            </p>
+            {draft.devices.map((device, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  value={device}
+                  onChange={(event) => {
+                    const devices = draft.devices.slice();
+                    devices[index] = event.target.value;
+                    setDraft({ ...draft, devices });
+                  }}
+                  aria-label={`Device ${index + 1}`}
+                  placeholder="Device name"
+                  className="h-12 min-w-0 flex-1 rounded-xl bg-bone px-3 text-base shadow-card outline-none"
+                />
+                <button
+                  type="button"
+                  className="h-12 shrink-0 px-2 text-sm text-copper"
+                  onClick={() => setDraft({ ...draft, devices: draft.devices.filter((_, item) => item !== index) })}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {draft.devices.length < 24 ? (
+              <button
+                type="button"
+                className="h-11 text-sm font-medium text-ink"
+                onClick={() => setDraft({ ...draft, devices: [...draft.devices, ""] })}
+              >
+                Add a device
               </button>
             ) : null}
           </fieldset>

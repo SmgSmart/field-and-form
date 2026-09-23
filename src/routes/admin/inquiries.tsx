@@ -69,6 +69,7 @@ function InquiriesPage() {
               <p className="mt-3 text-sm">
                 <span className="text-copper">{row.actionLabel || "Request"}</span>
                 {row.serviceName ? <span className="text-muted"> · {row.serviceName}</span> : null}
+                {row.device ? <span className="text-muted"> · {row.device}</span> : null}
               </p>
               {row.note ? <p className="mt-2 text-base leading-relaxed">{row.note}</p> : null}
               <p className="mt-3 text-sm text-muted">
