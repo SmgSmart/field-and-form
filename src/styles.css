@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+
+  --color-bone: #f4efe7;
+  --color-paper: #fbf7f2;
+  --color-ink: #1c1915;
+  --color-muted: #6f675e;
+  --color-line: #e3d9cc;
+  --color-copper: #b85c38;
+  --color-field: #241f1a;
+
+  --shadow-card:
+    0px 0px 0px 1px rgba(28, 25, 21, 0.08),
+    0px 1px 2px -1px rgba(28, 25, 21, 0.06),
+    0px 12px 32px -18px rgba(28, 25, 21, 0.28);
+  --shadow-card-hover:
+    0px 0px 0px 1px rgba(28, 25, 21, 0.12),
+    0px 8px 20px -12px rgba(28, 25, 21, 0.18);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    background: var(--color-bone);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100%;
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-copper);
+    outline-offset: 3px;
+  }
+}
+
+.face-grid {
+  background-image:
+    linear-gradient(to right, rgba(244, 239, 231, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(244, 239, 231, 0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.face-stripe {
+  background-image: repeating-linear-gradient(
+    -18deg,
+    transparent,
+    transparent 18px,
+    rgba(244, 239, 231, 0.14) 18px,
+    rgba(244, 239, 231, 0.14) 20px
+  );
+}
+
+.rise {
+  animation: rise 560ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.rise-2 {
+  animation-delay: 90ms;
+}
+
+.rise-3 {
+  animation-delay: 180ms;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+dialog {
+  margin: auto;
+  border: none;
+  padding: 0;
+  color: inherit;
+  background: var(--color-paper);
+}
+
+dialog::backdrop {
+  background: rgba(28, 25, 21, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}

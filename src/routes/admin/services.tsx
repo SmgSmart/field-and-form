@@ -1,0 +1,401 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
+import { ServiceFace } from "@/components/service-face";
+import { deleteCategory, deleteService, saveCategory, saveService } from "@/lib/studio.functions";
+import { FACES, ACTION_KINDS, type ActionKind, type Service, type ServiceDraft } from "@/lib/studio.types";
+import { cn } from "@/lib/cn";
+import { useAdmin } from "./route";
+
+export const Route = createFileRoute("/admin/services")({
+  component: CatalogPage,
+});
+
+const emptyDraft = (categoryId: string): ServiceDraft => ({
+  categoryId,
+  name: "",
+  summary: "",
+  story: "",
+  priceLabel: "",
+  durationLabel: "",
+  featured: false,
+  published: true,
+  face: "arc",
+  actions: [{ label: "Request this", kind: "inquire" }],
+});
+
+function CatalogPage() {
+  const { state, reload } = useAdmin();
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryBlurb, setCategoryBlurb] = useState("");
+  const [categoryError, setCategoryError] = useState("");
+  const [draft, setDraft] = useState<ServiceDraft>(emptyDraft(state.categories[0]?.id ?? ""));
+  const [serviceError, setServiceError] = useState("");
+  const [notice, setNotice] = useState("");
+  const { pending, run } = useWait();
+
+  async function addCategory(event: FormEvent) {
+    event.preventDefault();
+    setCategoryError("");
+    await run(async () => {
+      const result = await saveCategory({ data: { name: categoryName, blurb: categoryBlurb } });
+      if (!result.ok) {
+        setCategoryError(result.error);
+        return;
+      }
+      setCategoryName("");
+      setCategoryBlurb("");
+      setNotice(`Added ${result.data.name}.`);
+      if (!draft.categoryId) setDraft((current) => ({ ...current, categoryId: result.data.id }));
+      await reload();
+    });
+  }
+
+  async function removeCategory(id: string, name: string) {
+    if (!window.confirm(`Delete ${name}?`)) return;
+    setCategoryError("");
+    await run(async () => {
+      const result = await deleteCategory({ data: id });
+      if (!result.ok) {
+        setCategoryError(result.error);
+        return;
+      }
+      await reload();
+    });
+  }
+
+  function editService(service: Service) {
+    setDraft({
+      id: service.id,
+      categoryId: service.categoryId,
+      name: service.name,
+      summary: service.summary,
+      story: service.story,
+      priceLabel: service.priceLabel,
+      durationLabel: service.durationLabel,
+      featured: service.featured,
+      published: service.published,
+      face: service.face,
+      actions: service.actions.map((action) => ({ label: action.label, kind: action.kind })),
+    });
+    setServiceError("");
+    setNotice("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function onSaveService(event: FormEvent) {
+    event.preventDefault();
+    setServiceError("");
+    await run(async () => {
+      try {
+        const result = await saveService({ data: draft });
+        if (!result.ok) {
+          setServiceError(result.error);
+          return;
+        }
+        setNotice(draft.id ? `Updated ${result.data.name}.` : `Added ${result.data.name} to the site.`);
+        setDraft(emptyDraft(draft.categoryId));
+        await reload();
+      } catch (cause) {
+        setServiceError(cause instanceof Error ? cause.message : "Could not save the service.");
+      }
+    });
+  }
+
+  async function removeService(service: Service) {
+    if (!window.confirm(`Delete ${service.name}?`)) return;
+    await run(async () => {
+      const result = await deleteService({ data: service.id });
+      if (!result.ok) {
+        setServiceError(result.error);
+        return;
+      }
+      if (draft.id === service.id) setDraft(emptyDraft(state.categories[0]?.id ?? ""));
+      await reload();
+    });
+  }
+
+  return (
+    <main className="mx-auto max-w-5xl px-5 py-8">
+      <h1 className="font-display text-4xl">Services</h1>
+      <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+        Categories group the public list. A service only appears on the site when it is published. Featured ones also sit on the main page.
+      </p>
+
+      <section className="mt-8">
+        <h2 className="font-display text-2xl">Categories</h2>
+        <ul className="mt-3 divide-y divide-line border-y border-line">
+          {state.categories.map((category) => (
+            <li key={category.id} className="flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{category.name}</p>
+                <p className="truncate text-sm text-muted">{category.blurb}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeCategory(category.id, category.name)}
+                className="h-11 shrink-0 px-2 text-sm text-copper"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+        <form onSubmit={addCategory} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
+          <Field label="New category" value={categoryName} onChange={setCategoryName} />
+          <Field label="Line under it" value={categoryBlurb} onChange={setCategoryBlurb} />
+          <button
+            type="submit"
+            disabled={pending}
+            className="h-12 self-end rounded-full bg-ink px-4 text-sm font-medium text-bone disabled:opacity-60"
+          >
+            Add
+          </button>
+        </form>
+        {categoryError ? <p className="mt-2 text-sm text-copper">{categoryError}</p> : null}
+      </section>
+
+      <section className="mt-10">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-2xl">{draft.id ? "Edit service" : "New service"}</h2>
+          {draft.id ? (
+            <button
+              type="button"
+              className="text-sm text-muted"
+              onClick={() => setDraft(emptyDraft(state.categories[0]?.id ?? ""))}
+            >
+              Start a new one
+            </button>
+          ) : null}
+        </div>
+        <form onSubmit={onSaveService} className="mt-4 grid gap-4 rounded-3xl bg-paper p-5 shadow-card">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Name" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+            <label className="block space-y-1 text-sm font-medium">
+              Category
+              <select
+                value={draft.categoryId}
+                onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })}
+                className="h-12 w-full rounded-xl bg-bone px-3 text-base font-normal shadow-card outline-none"
+              >
+                {state.categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block space-y-1 text-sm font-medium">
+            Summary
+            <textarea
+              value={draft.summary}
+              onChange={(event) => setDraft({ ...draft, summary: event.target.value })}
+              rows={2}
+              className="w-full rounded-xl bg-bone px-3 py-3 text-base font-normal shadow-card outline-none"
+            />
+          </label>
+          <label className="block space-y-1 text-sm font-medium">
+            The longer note on the service page
+            <textarea
+              value={draft.story}
+              onChange={(event) => setDraft({ ...draft, story: event.target.value })}
+              rows={4}
+              className="w-full rounded-xl bg-bone px-3 py-3 text-base font-normal shadow-card outline-none"
+            />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Price line"
+              value={draft.priceLabel}
+              onChange={(priceLabel) => setDraft({ ...draft, priceLabel })}
+            />
+            <Field
+              label="Time line"
+              value={draft.durationLabel}
+              onChange={(durationLabel) => setDraft({ ...draft, durationLabel })}
+            />
+          </div>
+          <fieldset>
+            <legend className="text-sm font-medium">Face</legend>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              {FACES.map((face) => (
+                <button
+                  key={face}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, face })}
+                  className={cn(
+                    "rounded-2xl p-1",
+                    draft.face === face ? "ring-2 ring-copper" : "ring-1 ring-line",
+                  )}
+                  aria-pressed={draft.face === face}
+                >
+                  <ServiceFace face={face} className="h-16 rounded-xl" />
+                  <span className="sr-only">{face}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div className="flex flex-wrap gap-4">
+            <Check
+              label="Published on the site"
+              checked={draft.published}
+              onChange={(published) => setDraft({ ...draft, published })}
+            />
+            <Check
+              label="Show on the main page"
+              checked={draft.featured}
+              onChange={(featured) => setDraft({ ...draft, featured })}
+            />
+          </div>
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium">Actions on the service page</legend>
+            {draft.actions.map((action, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_10rem_auto]">
+                <input
+                  value={action.label}
+                  onChange={(event) => {
+                    const actions = draft.actions.slice();
+                    actions[index] = { ...action, label: event.target.value };
+                    setDraft({ ...draft, actions });
+                  }}
+                  aria-label={`Action ${index + 1} label`}
+                  className="h-12 rounded-xl bg-bone px-3 text-base shadow-card outline-none"
+                />
+                <select
+                  value={action.kind}
+                  onChange={(event) => {
+                    const actions = draft.actions.slice();
+                    actions[index] = { ...action, kind: event.target.value as ActionKind };
+                    setDraft({ ...draft, actions });
+                  }}
+                  aria-label={`Action ${index + 1} kind`}
+                  className="h-12 rounded-xl bg-bone px-3 text-base shadow-card outline-none"
+                >
+                  {ACTION_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind === "inquire" ? "Request form" : kind === "quote" ? "Quote form" : "Call"}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="h-12 px-2 text-sm text-copper disabled:opacity-40"
+                  disabled={draft.actions.length === 1}
+                  onClick={() =>
+                    setDraft({ ...draft, actions: draft.actions.filter((_, item) => item !== index) })
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {draft.actions.length < 3 ? (
+              <button
+                type="button"
+                className="h-11 text-sm font-medium text-ink"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    actions: [...draft.actions, { label: "Ask for a quote", kind: "quote" }],
+                  })
+                }
+              >
+                Add an action
+              </button>
+            ) : null}
+          </fieldset>
+          {serviceError ? <p className="text-sm text-copper">{serviceError}</p> : null}
+          {notice ? <p className="text-sm text-muted">{notice}</p> : null}
+          <button
+            type="submit"
+            disabled={pending}
+            className="h-12 rounded-full bg-copper px-5 text-base font-medium text-bone disabled:opacity-60"
+          >
+            {pending ? "Saving…" : draft.id ? "Update service" : "Add to the site"}
+          </button>
+        </form>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="font-display text-2xl">Listed</h2>
+        <ul className="mt-4 space-y-3">
+          {state.services.map((service) => (
+            <li key={service.id} className="flex items-center gap-3 rounded-3xl bg-paper p-2 shadow-card">
+              <ServiceFace face={service.face} className="size-16 shrink-0 rounded-2xl" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{service.name}</p>
+                <p className="truncate text-sm text-muted">
+                  {service.categoryName}
+                  {service.published ? "" : " · hidden"}
+                  {service.featured ? " · on main page" : ""}
+                </p>
+              </div>
+              <button type="button" onClick={() => editService(service)} className="h-11 px-2 text-sm font-medium">
+                Edit
+              </button>
+              <button type="button" onClick={() => removeService(service)} className="h-11 px-2 text-sm text-copper">
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </main>
+  );
+}
+
+function Check({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-5 accent-copper"
+      />
+      {label}
+    </label>
+  );
+}
+
+function useWait() {
+  const [pending, setPending] = useState(false);
+  async function run(task: () => Promise<void>) {
+    setPending(true);
+    try {
+      await task();
+    } finally {
+      setPending(false);
+    }
+  }
+  return { pending, run };
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block space-y-1 text-sm font-medium">
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-xl bg-bone px-3 text-base font-normal shadow-card outline-none"
+      />
+    </label>
+  );
+}
