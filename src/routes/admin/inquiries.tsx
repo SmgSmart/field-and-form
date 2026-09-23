@@ -10,7 +10,7 @@ export const Route = createFileRoute("/admin/inquiries")({
 });
 
 function InquiriesPage() {
-  const { reload } = useAdmin();
+  const { state, reload } = useAdmin();
   const [rows, setRows] = useState<Inquiry[] | null>(null);
   const [error, setError] = useState("");
 
@@ -46,7 +46,9 @@ function InquiriesPage() {
     <main className="mx-auto max-w-5xl px-5 py-8">
       <h1 className="font-display text-4xl">Inquiries</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-        Notes people send from a service action. Only the desk can see them.
+        Each one is saved here
+        {state.studio.email ? ` and emailed to ${state.studio.email}` : ""}.
+        {state.whatsappKey && state.studio.whatsapp ? " It is also sent to your WhatsApp." : ""}
       </p>
       {error ? <p className="mt-4 text-sm text-copper">{error}</p> : null}
       {rows === null ? (

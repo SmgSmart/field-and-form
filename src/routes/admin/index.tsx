@@ -11,13 +11,15 @@ export const Route = createFileRoute("/admin/")({
 function IdentityPage() {
   const { state, reload } = useAdmin();
   const [form, setForm] = useState<Studio>(state.studio);
+  const [whatsappKey, setWhatsappKey] = useState(state.whatsappKey);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
     setForm(state.studio);
-  }, [state.studio]);
+    setWhatsappKey(state.whatsappKey);
+  }, [state.studio, state.whatsappKey]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -25,7 +27,7 @@ function IdentityPage() {
     setSaved(false);
     setError("");
     try {
-      const result = await saveStudio({ data: form });
+      const result = await saveStudio({ data: { ...form, whatsappKey } });
       if (!result.ok) {
         setError(result.error);
         setPending(false);
@@ -82,8 +84,14 @@ function IdentityPage() {
           value={form.whatsapp}
           onChange={(whatsapp) => setForm({ ...form, whatsapp })}
         />
-        <p className="text-sm text-muted sm:col-span-2">
-          Include the country code, for example +233 24 000 0000. A service action set to WhatsApp opens a chat to this number.
+        <Field
+          className="sm:col-span-2"
+          label="WhatsApp alert key"
+          value={whatsappKey}
+          onChange={setWhatsappKey}
+        />
+        <p className="text-sm leading-relaxed text-muted sm:col-span-2">
+          Enquiries are emailed to the address below, including the service, device, and note. For WhatsApp, add +34 623 78 95 95 in your phone, send “I allow callmebot to send me messages”, then paste the key you get back and save.
         </p>
         <Field
           className="sm:col-span-2"

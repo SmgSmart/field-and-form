@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { deskGate } from "@/lib/desk-middleware";
+import { notifyInquiry } from "@/lib/notify";
 import { resolveTheme, sanitizeTheme, type ThemeTokens } from "@/lib/theme";
 import {
   ACTION_KINDS,
@@ -28,6 +29,7 @@ type StudioRow = {
   email: string;
   phone: string;
   whatsapp: string;
+  whatsapp_key: string;
   owner_user_id: string | null;
 };
 
@@ -155,7 +157,7 @@ function mapService(row: ServiceRow, actions: ServiceAction[], imageIds: string[
 }
 
 async function readStudio(sql: Sql): Promise<StudioRow> {
-  const rows = await sql<StudioRow>`select name, kicker, headline, lede, city, email, phone, whatsapp, owner_user_id from studio where id = 1`;
+  const rows = await sql<StudioRow>`select name, kicker, headline, lede, city, email, phone, whatsapp, whatsapp_key, owner_user_id from studio where id = 1`;
   const row = rows[0];
   if (!row) throw new Error("Studio is not ready yet.");
   return row;
@@ -345,8 +347,8 @@ export const submitInquiry = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<Result<true>> => {
     const sql = await getSql();
-    const found = await sql<{ id: string }>`
-      select id from services where id = ${data.serviceId} and published = true
+    const found = await sql<{ id: string; name: string }>`
+      select id, name from services where id = ${data.serviceId} and published = true
     `;
     if (!found[0]) return { ok: false, error: "That service is not open." };
     const devices = await sql<{ name: string }>`
@@ -360,6 +362,19 @@ export const submitInquiry = createServerFn({ method: "POST" })
       insert into inquiries (id, service_id, action_label, name, contact, note, device)
       values (${id}, ${data.serviceId}, ${data.actionLabel}, ${data.name}, ${data.contact}, ${data.note}, ${data.device})
     `;
+    const studio = await readStudio(sql);
+    await notifyInquiry({
+      email: studio.email,
+      whatsapp: studio.whatsapp,
+      whatsappKey: studio.whatsapp_key ?? "",
+      studioName: studio.name,
+      serviceName: found[0].name,
+      actionLabel: data.actionLabel,
+      device: data.device,
+      name: data.name,
+      contact: data.contact,
+      note: data.note,
+    });
     return { ok: true, data: true };
   });
 
@@ -382,13 +397,14 @@ export const getAdminState = createServerFn({ method: "GET" })
         ownerSet: Boolean(studioRow.owner_user_id),
         inquiryCount: asNum(counts[0]?.count),
         theme: await readAppearance(sql),
+        whatsappKey: studioRow.whatsapp_key ?? "",
       },
     };
   });
 
 export const saveStudio = createServerFn({ method: "POST" })
   .middleware([deskGate])
-  .validator((input: Studio) => {
+  .validator((input: Studio & { whatsappKey?: string }) => {
     const name = input.name?.trim().slice(0, 60) ?? "";
     if (!name) throw new Error("The studio needs a name.");
     return {
@@ -400,7 +416,8 @@ export const saveStudio = createServerFn({ method: "POST" })
       email: input.email?.trim().slice(0, 120) ?? "",
       phone: input.phone?.trim().slice(0, 40) ?? "",
       whatsapp: input.whatsapp?.trim().slice(0, 40) ?? "",
-    } satisfies Studio;
+      whatsappKey: input.whatsappKey?.trim().slice(0, 40) ?? "",
+    };
   })
   .handler(async ({ context, data }): Promise<Result<Studio>> => {
     const sql = await getSql();
@@ -417,6 +434,7 @@ export const saveStudio = createServerFn({ method: "POST" })
           email = ${data.email},
           phone = ${data.phone},
           whatsapp = ${data.whatsapp},
+          whatsapp_key = ${data.whatsappKey},
           updated_at = now()
       where id = 1 and owner_user_id = ${DESK_OWNER}
     `;

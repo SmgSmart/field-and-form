@@ -77,6 +77,7 @@ export type AdminState = Catalog & {
   ownerSet: boolean;
   inquiryCount: number;
   theme: ThemeTokens;
+  whatsappKey: string;
 };
 
 export type DraftImage = {
