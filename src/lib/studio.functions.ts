@@ -35,6 +35,7 @@ type CategoryRow = {
   slug: string;
   blurb: string;
   sort_order: number;
+  image_id: string | null;
 };
 
 type ServiceRow = {
@@ -115,6 +116,7 @@ function mapCategory(row: CategoryRow): Category {
     slug: row.slug,
     blurb: row.blurb,
     sortOrder: asNum(row.sort_order),
+    imageId: row.image_id,
   };
 }
 
@@ -157,9 +159,10 @@ async function readStudio(sql: Sql): Promise<StudioRow> {
 
 async function readCategories(sql: Sql): Promise<Category[]> {
   const rows = await sql<CategoryRow>`
-    select id, name, slug, blurb, sort_order
-    from categories
-    order by sort_order, name
+    select c.id, c.name, c.slug, c.blurb, c.sort_order, i.id as image_id
+    from categories c
+    left join category_images i on i.category_id = c.id
+    order by c.sort_order, c.name
   `;
   return rows.map(mapCategory);
 }
@@ -386,7 +389,10 @@ export const saveCategory = createServerFn({ method: "POST" })
         where id = ${data.id} and owner_user_id = ${DESK_OWNER}
       `;
       const rows = await sql<CategoryRow>`
-        select id, name, slug, blurb, sort_order from categories where id = ${data.id}
+        select c.id, c.name, c.slug, c.blurb, c.sort_order, i.id as image_id
+        from categories c
+        left join category_images i on i.category_id = c.id
+        where c.id = ${data.id}
       `;
       return { ok: true, data: mapCategory(rows[0]) };
     }
@@ -400,7 +406,7 @@ export const saveCategory = createServerFn({ method: "POST" })
     `;
     return {
       ok: true,
-      data: { id, name: data.name, slug, blurb: data.blurb, sortOrder },
+      data: { id, name: data.name, slug, blurb: data.blurb, sortOrder, imageId: null },
     };
   });
 
@@ -428,6 +434,39 @@ export const deleteCategory = createServerFn({ method: "POST" })
 
 const IMAGE_LIMIT = 3;
 const IMAGE_CHARS = 700_000;
+
+function parseStoredImage(dataUrl: string): { type: string; data: string } {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl.trim());
+  if (!match) throw new Error("Use a JPEG, PNG, or WebP photo.");
+  if (match[2].length > IMAGE_CHARS) throw new Error("That photo is too large. Try a smaller one.");
+  return { type: match[1], data: match[2] };
+}
+
+export const setCategoryImage = createServerFn({ method: "POST" })
+  .middleware([deskGate])
+  .validator((input: { id: string; dataUrl: string | null }) => {
+    const id = input.id?.trim() ?? "";
+    if (!id) throw new Error("Choose a category.");
+    if (!input.dataUrl) return { id, dataUrl: null as string | null };
+    parseStoredImage(input.dataUrl);
+    return { id, dataUrl: input.dataUrl.trim() };
+  })
+  .handler(async ({ context, data }): Promise<Result<true>> => {
+    const sql = await getSql();
+    const claimed = await requireDesk(sql, context.deskSignedIn);
+    if (!claimed.ok) return claimed;
+    const category = await sql<{ id: string }>`select id from categories where id = ${data.id}`;
+    if (!category[0]) return { ok: false, error: "That category is not on this studio." };
+    await sql`delete from category_images where category_id = ${data.id}`;
+    if (data.dataUrl) {
+      const image = parseStoredImage(data.dataUrl);
+      await sql`
+        insert into category_images (id, category_id, content_type, data)
+        values (${crypto.randomUUID()}, ${data.id}, ${image.type}, ${image.data})
+      `;
+    }
+    return { ok: true, data: true };
+  });
 
 function normalizeImages(input: DraftImage[] | undefined): DraftImage[] {
   const images: DraftImage[] = [];

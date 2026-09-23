@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ServiceFace, ServiceMark } from "@/components/service-face";
-import { deleteCategory, deleteService, saveCategory, saveService } from "@/lib/studio.functions";
+import { deleteCategory, deleteService, saveCategory, saveService, setCategoryImage } from "@/lib/studio.functions";
 import { FACES, ACTION_KINDS, type ActionKind, type Service, type ServiceDraft } from "@/lib/studio.types";
 import { cn } from "@/lib/cn";
 import { useAdmin } from "./-desk-context";
@@ -34,6 +34,7 @@ function CatalogPage() {
   const { state, reload } = useAdmin();
   const [categoryName, setCategoryName] = useState("");
   const [categoryBlurb, setCategoryBlurb] = useState("");
+  const [categoryPhoto, setCategoryPhoto] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState("");
   const [draft, setDraft] = useState<ServiceDraft>(emptyDraft(state.categories[0]?.id ?? ""));
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -46,15 +47,60 @@ function CatalogPage() {
     event.preventDefault();
     setCategoryError("");
     await run(async () => {
-      const result = await saveCategory({ data: { name: categoryName, blurb: categoryBlurb } });
+      try {
+        const result = await saveCategory({ data: { name: categoryName, blurb: categoryBlurb } });
+        if (!result.ok) {
+          setCategoryError(result.error);
+          return;
+        }
+        if (categoryPhoto) {
+          const image = await setCategoryImage({ data: { id: result.data.id, dataUrl: categoryPhoto } });
+          if (!image.ok) {
+            setCategoryError(image.error);
+            await reload();
+            return;
+          }
+        }
+        setCategoryName("");
+        setCategoryBlurb("");
+        setCategoryPhoto(null);
+        setNotice(`Added ${result.data.name}.`);
+        if (!draft.categoryId) setDraft((current) => ({ ...current, categoryId: result.data.id }));
+        await reload();
+      } catch (cause) {
+        setCategoryError(cause instanceof Error ? cause.message : "Could not add that category.");
+      }
+    });
+  }
+
+  async function onCategoryPhoto(id: string, name: string, file?: File) {
+    if (!file) return;
+    setCategoryError("");
+    await run(async () => {
+      try {
+        const dataUrl = await compressImage(file);
+        const result = await setCategoryImage({ data: { id, dataUrl } });
+        if (!result.ok) {
+          setCategoryError(result.error);
+          return;
+        }
+        setNotice(`Photo added to ${name}.`);
+        await reload();
+      } catch (cause) {
+        setCategoryError(cause instanceof Error ? cause.message : "Could not read that photo.");
+      }
+    });
+  }
+
+  async function clearCategoryPhoto(id: string, name: string) {
+    setCategoryError("");
+    await run(async () => {
+      const result = await setCategoryImage({ data: { id, dataUrl: null } });
       if (!result.ok) {
         setCategoryError(result.error);
         return;
       }
-      setCategoryName("");
-      setCategoryBlurb("");
-      setNotice(`Added ${result.data.name}.`);
-      if (!draft.categoryId) setDraft((current) => ({ ...current, categoryId: result.data.id }));
+      setNotice(`Photo removed from ${name}.`);
       await reload();
     });
   }
@@ -187,6 +233,13 @@ function CatalogPage() {
             const count = state.services.filter((service) => service.categoryId === category.id).length;
             return (
               <li key={category.id} className="flex items-center gap-3 py-3">
+                {category.imageId ? (
+                  <img src={`/api/media/${category.imageId}`} alt="" className="size-14 shrink-0 rounded-2xl object-cover" />
+                ) : (
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-field text-xs text-muted">
+                    Photo
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{category.name}</p>
                   {asking ? (
@@ -196,7 +249,19 @@ function CatalogPage() {
                         : `Delete ${category.name}?`}
                     </p>
                   ) : (
-                    <p className="truncate text-sm text-muted">{category.blurb}</p>
+                    <>
+                      <p className="truncate text-sm text-muted">{category.blurb}</p>
+                      {category.imageId ? (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => clearCategoryPhoto(category.id, category.name)}
+                          className="mt-1 text-sm text-copper"
+                        >
+                          Remove photo
+                        </button>
+                      ) : null}
+                    </>
                   )}
                 </div>
                 {asking ? (
@@ -219,13 +284,29 @@ function CatalogPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirming({ kind: "category", id: category.id })}
-                    className="h-11 shrink-0 px-2 text-sm text-copper"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex shrink-0 flex-col items-end">
+                    <label className="relative inline-flex h-11 cursor-pointer items-center overflow-hidden px-2 text-sm font-medium">
+                      <span>{category.imageId ? "Change" : "Add photo"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={pending}
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          void onCategoryPhoto(category.id, category.name, file);
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming({ kind: "category", id: category.id })}
+                      className="h-11 px-2 text-sm text-copper"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
               </li>
             );
@@ -241,6 +322,38 @@ function CatalogPage() {
           >
             Add
           </button>
+          <div className="flex items-center gap-3 sm:col-span-3">
+            {categoryPhoto ? (
+              <img src={categoryPhoto} alt="" className="size-14 rounded-2xl object-cover" />
+            ) : null}
+            <label className="relative inline-flex h-12 cursor-pointer items-center overflow-hidden rounded-full bg-field px-4 text-sm font-medium">
+              <span>{categoryPhoto ? "Change photo" : "Add a photo"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={pending}
+                className="absolute inset-0 cursor-pointer opacity-0"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  void compressImage(file)
+                    .then((url) => {
+                      setCategoryPhoto(url);
+                      setCategoryError("");
+                    })
+                    .catch((cause: unknown) => {
+                      setCategoryError(cause instanceof Error ? cause.message : "Could not read that photo.");
+                    });
+                }}
+              />
+            </label>
+            {categoryPhoto ? (
+              <button type="button" className="h-12 px-2 text-sm text-copper" onClick={() => setCategoryPhoto(null)}>
+                Remove
+              </button>
+            ) : null}
+          </div>
         </form>
         {categoryError ? <p className="mt-2 text-sm text-copper">{categoryError}</p> : null}
       </section>

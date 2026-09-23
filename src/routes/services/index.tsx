@@ -46,16 +46,29 @@ function ServicesPage() {
           ))}
         </div>
 
-        <ServiceFace
-          face={face}
-          eyebrow={
-            active
-              ? `${visible.length} ${visible.length === 1 ? "service" : "services"}`
-              : `${visible.length} services`
-          }
-          title={active ? active.name : studio.name}
-          className="mt-6 h-56 rounded-3xl sm:h-72"
-        />
+        {active?.imageId ? (
+          <div className="relative mt-6 h-56 overflow-hidden rounded-3xl sm:h-72">
+            <img src={`/api/media/${active.imageId}`} alt="" className="absolute inset-0 size-full object-cover" />
+            <div className="absolute inset-0 bg-ink/40" />
+            <div className="relative flex h-full flex-col justify-end gap-2 p-5 sm:p-7">
+              <p className="text-sm font-medium tracking-wide text-bone/80">
+                {visible.length} {visible.length === 1 ? "service" : "services"}
+              </p>
+              <p className="font-display text-3xl leading-tight text-bone sm:text-5xl">{active.name}</p>
+            </div>
+          </div>
+        ) : (
+          <ServiceFace
+            face={face}
+            eyebrow={
+              active
+                ? `${visible.length} ${visible.length === 1 ? "service" : "services"}`
+                : `${visible.length} services`
+            }
+            title={active ? active.name : studio.name}
+            className="mt-6 h-56 rounded-3xl sm:h-72"
+          />
+        )}
 
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {visible.map((service) => (

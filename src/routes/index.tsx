@@ -53,9 +53,17 @@ function Home() {
                     search={{ category: category.slug }}
                     className="group flex items-center gap-4 py-4"
                   >
-                    <span className="w-8 font-display text-lg text-copper">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
+                    {category.imageId ? (
+                      <img
+                        src={`/api/media/${category.imageId}`}
+                        alt=""
+                        className="size-16 shrink-0 rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <span className="w-8 font-display text-lg text-copper">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="block font-display text-2xl group-hover:text-copper">{category.name}</span>
                       <span className="mt-1 block text-sm text-muted">{category.blurb}</span>

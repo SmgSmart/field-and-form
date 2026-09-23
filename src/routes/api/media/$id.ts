@@ -10,6 +10,9 @@ export const Route = createFileRoute("/api/media/$id")({
         const sql = await getSql();
         const rows = await sql<{ content_type: string; data: string }>`
           select content_type, data from service_images where id = ${id}
+          union all
+          select content_type, data from category_images where id = ${id}
+          limit 1
         `;
         const row = rows[0];
         if (!row) return new Response("Not found", { status: 404 });

@@ -20,6 +20,7 @@ export type Category = {
   slug: string;
   blurb: string;
   sortOrder: number;
+  imageId: string | null;
 };
 
 export type ServiceAction = {
