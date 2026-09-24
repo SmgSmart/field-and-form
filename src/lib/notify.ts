@@ -23,28 +23,8 @@ function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function sendEmail(notice: InquiryNotice): Promise<Response> {
-  const subject = `New enquiry: ${notice.serviceName || notice.studioName} — ${notice.name}`;
-  return fetch(`https://formsubmit.co/ajax/${encodeURIComponent(notice.email.trim())}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      _subject: subject,
-      _template: "table",
-      _captcha: "false",
-      Name: notice.name,
-      Contact: notice.contact,
-      Service: notice.serviceName || "—",
-      Action: notice.actionLabel || "Request",
-      Device: notice.device || "—",
-      Note: notice.note || "—",
-    }),
-    signal: AbortSignal.timeout(8000),
-  });
-}
-
-function sendWhatsApp(phone: string, notice: InquiryNotice): Promise<Response> {
-  const text = [
+function enquiryText(notice: InquiryNotice): string {
+  return [
     `New enquiry for ${notice.studioName}`,
     notice.serviceName ? `Service: ${notice.serviceName}` : "",
     notice.actionLabel ? `Action: ${notice.actionLabel}` : "",
@@ -54,8 +34,43 @@ function sendWhatsApp(phone: string, notice: InquiryNotice): Promise<Response> {
     notice.note ? `Note: ${notice.note}` : "",
   ]
     .filter(Boolean)
-    .join("\n")
-    .slice(0, 900);
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(notice.whatsappKey.trim())}`;
-  return fetch(url, { signal: AbortSignal.timeout(8000) });
+    .join("\n");
+}
+
+async function sendEmail(notice: InquiryNotice): Promise<void> {
+  const body = new URLSearchParams({
+    to: notice.email.trim(),
+    subject: `New enquiry: ${notice.serviceName || notice.studioName} — ${notice.name}`,
+    name: notice.name,
+    email: notice.contact.includes("@") ? notice.contact.trim() : notice.email.trim(),
+    message: enquiryText(notice),
+    hp_email: "",
+  });
+  const response = await fetch("https://email.gosecureserver.in/api/send.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    redirect: "manual",
+    signal: AbortSignal.timeout(12000),
+  });
+  if (response.status >= 400) {
+    throw new Error(`Email was not accepted (${response.status}).`);
+  }
+}
+
+async function sendWhatsApp(phone: string, notice: InquiryNotice): Promise<void> {
+  const key = notice.whatsappKey.trim();
+  const short = enquiryText(notice).slice(0, 180);
+  const whatabot = await fetch("https://api.whatabot.io/Whatsapp/RequestSendMessage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ApiKey: key, Text: short, Phone: phone }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (whatabot.ok) return;
+  const callmebot = await fetch(
+    `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(enquiryText(notice).slice(0, 900))}&apikey=${encodeURIComponent(key)}`,
+    { signal: AbortSignal.timeout(8000) },
+  );
+  if (!callmebot.ok) throw new Error("WhatsApp was not accepted.");
 }

@@ -91,7 +91,16 @@ function IdentityPage() {
           onChange={setWhatsappKey}
         />
         <p className="text-sm leading-relaxed text-muted sm:col-span-2">
-          Enquiries are emailed to the address below, including the service, device, and note. For WhatsApp, add +34 623 78 95 95 in your phone, send “I allow callmebot to send me messages”, then paste the key you get back and save.
+          Every enquiry is emailed straight to the address below. No confirmation step. For WhatsApp, tap{" "}
+          <a
+            href="https://wa.me/5492364205798?text=I%20allow%20whatabot%20to%20send%20me%20messages"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-copper underline"
+          >
+            Allow WhatsApp alerts
+          </a>
+          , send the message that opens, paste the key you get back here, and save.
         </p>
         <Field
           className="sm:col-span-2"
