@@ -612,7 +612,7 @@ function CatalogPage() {
                 </button>
               </div>
             ))}
-            {draft.devices.length < 24 ? (
+            {draft.devices.length < 39 ? (
               <button
                 type="button"
                 className="h-11 text-sm font-medium text-ink"

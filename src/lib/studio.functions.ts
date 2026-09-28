@@ -613,7 +613,7 @@ export const saveService = createServerFn({ method: "POST" })
     const devices = (input.devices ?? [])
       .map((device) => device.trim().slice(0, 60))
       .filter(Boolean)
-      .slice(0, 24);
+      .slice(0, 39);
     return {
       id: input.id?.trim() || undefined,
       categoryId,
