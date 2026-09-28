@@ -40,7 +40,7 @@ function ServicePage() {
   return (
     <div className="min-h-screen bg-bone text-ink">
       <SiteHeader name={studio.name} />
-      <main className="mx-auto max-w-5xl px-5 pb-28 pt-6">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:px-6 lg:px-8">
         <Link
           to="/services"
           search={{ category: service.categorySlug }}
@@ -53,7 +53,7 @@ function ServicePage() {
             <img
               src={`/api/media/${service.imageIds[shot] ?? service.imageIds[0]}`}
               alt={`${service.name}`}
-              className="h-80 w-full rounded-3xl bg-field object-cover sm:h-96"
+              className="aspect-[4/3] w-full rounded-3xl bg-field object-cover sm:aspect-[16/9]"
             />
             {service.imageIds.length > 1 ? (
               <div className="mt-3 grid grid-cols-3 gap-3">
@@ -74,7 +74,7 @@ function ServicePage() {
                 ))}
               </div>
             ) : null}
-            <h1 className="mt-5 font-display text-4xl sm:text-5xl">{service.name}</h1>
+            <h1 className="mt-5 break-words font-display text-[2.05rem] leading-tight sm:text-5xl">{service.name}</h1>
           </div>
         ) : (
           <ServiceFace
@@ -82,14 +82,14 @@ function ServicePage() {
             eyebrow={service.categoryName}
             title={service.name}
             titleAs="h1"
-            className="mt-2 h-80 rounded-3xl sm:h-96"
+            className="mt-2 aspect-[4/3] rounded-3xl sm:aspect-[16/9]"
           />
         )}
         <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
           {service.priceLabel ? <p>{service.priceLabel}</p> : null}
           {service.durationLabel ? <p>{service.durationLabel}</p> : null}
         </div>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed">{service.summary}</p>
+        <p className="mt-4 max-w-2xl break-words text-base leading-relaxed sm:text-lg">{service.summary}</p>
         {service.story ? (
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">{service.story}</p>
         ) : null}
@@ -128,7 +128,7 @@ function ServicePage() {
         {related.length > 0 ? (
           <section className="mt-12 border-t border-line pt-8">
             <h2 className="font-display text-2xl">Also in {service.categoryName}</h2>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((item) => (
                 <li key={item.id}>
                   <Link
@@ -136,7 +136,7 @@ function ServicePage() {
                     params={{ slug: item.slug }}
                     className="block rounded-2xl bg-paper p-4 shadow-card"
                   >
-                    <span className="block font-display text-xl">{item.name}</span>
+                    <span className="block break-words font-display text-xl">{item.name}</span>
                     <span className="mt-1 block text-sm text-muted">{item.priceLabel}</span>
                   </Link>
                 </li>

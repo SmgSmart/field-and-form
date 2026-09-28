@@ -10,7 +10,7 @@ export function SiteHeader({
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bone/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-5">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Link to="/" className="min-w-0 truncate font-display text-xl text-ink">
           {name}
         </Link>
@@ -72,9 +72,9 @@ export function SiteFooter({
   const chat = whatsappLink(whatsapp);
   return (
     <footer className="mt-16 bg-field text-bone">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link to="/admin" className="inline-flex min-h-11 items-center font-display text-3xl text-bone">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:px-8">
+        <div className="min-w-0">
+          <Link to="/admin" className="inline-flex min-h-11 max-w-full items-center break-words font-display text-3xl text-bone">
             {name}
           </Link>
           <p className="mt-2 text-sm text-bone/70">{city || "Set a city in the desk"}</p>

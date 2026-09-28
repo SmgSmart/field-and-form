@@ -19,13 +19,13 @@ function Home() {
   return (
     <div className="min-h-screen bg-bone text-ink">
       <SiteHeader name={studio.name} />
-      <main className="mx-auto max-w-5xl px-5">
-        <section className="pb-8 pt-10 sm:pt-16">
+      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+        <section className="pb-8 pt-8 sm:pt-14 lg:pt-16">
           <p className="rise text-sm font-medium tracking-wide text-copper">{studio.kicker}</p>
-          <h1 className="rise rise-2 mt-3 max-w-3xl font-display text-4xl leading-tight text-ink sm:text-6xl">
+          <h1 className="rise rise-2 mt-3 max-w-3xl break-words font-display text-[2.05rem] leading-[1.15] text-ink sm:text-5xl lg:text-6xl">
             {studio.headline}
           </h1>
-          <p className="rise rise-3 mt-5 max-w-xl text-lg leading-relaxed text-muted">{studio.lede}</p>
+          <p className="rise rise-3 mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg">{studio.lede}</p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               to="/services"
@@ -51,22 +51,24 @@ function Home() {
                   <Link
                     to="/services"
                     search={{ category: category.slug }}
-                    className="group flex items-center gap-4 py-4"
+                    className="group flex items-center gap-3 py-4 sm:gap-4"
                   >
                     {category.imageId ? (
                       <img
                         src={`/api/media/${category.imageId}`}
                         alt=""
-                        className="size-16 shrink-0 rounded-2xl object-cover"
+                        className="size-14 shrink-0 rounded-2xl object-cover sm:size-16"
                       />
                     ) : (
-                      <span className="w-8 font-display text-lg text-copper">
+                      <span className="w-8 shrink-0 font-display text-lg text-copper">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block font-display text-2xl group-hover:text-copper">{category.name}</span>
-                      <span className="mt-1 block text-sm text-muted">{category.blurb}</span>
+                      <span className="block break-words font-display text-xl leading-tight group-hover:text-copper sm:text-2xl">
+                        {category.name}
+                      </span>
+                      <span className="mt-1 block break-words text-sm text-muted">{category.blurb}</span>
                     </span>
                     <span className="hidden text-sm text-muted sm:block">
                       {count} {count === 1 ? "service" : "services"}
@@ -86,23 +88,29 @@ function Home() {
               All services
             </Link>
           </div>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul
+            className={
+              featured.length === 1
+                ? "grid grid-cols-1 gap-4"
+                : "grid grid-cols-1 gap-4 sm:grid-cols-2"
+            }
+          >
             {featured.map((service) => (
-              <li key={service.id}>
+              <li key={service.id} className="min-w-0">
                 <Link
                   to="/services/$slug"
                   params={{ slug: service.slug }}
-                  className="flex gap-3 rounded-3xl bg-paper p-2 shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
+                  className="flex h-full flex-col overflow-hidden rounded-3xl bg-paper shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
                 >
                   <ServiceMark
                     face={service.face}
                     imageId={service.imageIds[0]}
-                    className="size-24 shrink-0 rounded-2xl"
+                    className="aspect-[4/3] w-full sm:aspect-[16/10]"
                   />
-                  <span className="flex min-w-0 flex-1 flex-col justify-center py-1 pr-2">
+                  <span className="flex min-w-0 flex-col gap-1 p-4">
                     <span className="text-sm text-copper">{service.categoryName}</span>
-                    <span className="truncate font-display text-2xl">{service.name}</span>
-                    <span className="mt-1 text-sm text-muted">{service.priceLabel}</span>
+                    <span className="break-words font-display text-xl leading-tight sm:text-2xl">{service.name}</span>
+                    {service.priceLabel ? <span className="text-sm text-muted">{service.priceLabel}</span> : null}
                   </span>
                 </Link>
               </li>
@@ -113,7 +121,7 @@ function Home() {
           ) : null}
         </section>
 
-        <section className="grid gap-6 border-t border-line py-10 sm:grid-cols-3">
+        <section className="grid gap-6 border-t border-line py-10 sm:grid-cols-2 lg:grid-cols-3">
           {[
             ["01", "Choose a category", "Home, gatherings, care, studio — or whatever you rename them to."],
             ["02", "Open the service", "Each one has its own page, with a face and the work written out."],
@@ -127,12 +135,12 @@ function Home() {
           ))}
         </section>
       </main>
-      <div className="mx-auto hidden max-w-5xl px-5 pb-4 sm:block">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:px-8">
         <ServiceFace
           face={FACES[0]}
           eyebrow={studio.city || "Studio"}
           title={studio.name}
-          className="h-56 rounded-3xl"
+          className="h-44 rounded-3xl sm:h-64 lg:h-80"
         />
       </div>
       <SiteFooter name={studio.name} city={studio.city} email={studio.email} phone={studio.phone} whatsapp={studio.whatsapp} />

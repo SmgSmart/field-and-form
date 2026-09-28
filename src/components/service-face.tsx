@@ -11,7 +11,7 @@ export function ServiceMark({
   className?: string;
 }) {
   if (!imageId) return <ServiceFace face={face} className={className} />;
-  return <img src={`/api/media/${imageId}`} alt="" className={cn("bg-field object-cover", className)} />;
+  return <img src={`/api/media/${imageId}`} alt="" className={cn("block bg-field object-cover", className)} />;
 }
 
 export function ServiceFace({
@@ -36,7 +36,7 @@ export function ServiceFace({
             <p className="text-sm font-medium tracking-wide text-bone/75">{eyebrow}</p>
           )}
           {title && (
-            <Title as={titleAs} className="max-w-xl font-display text-3xl leading-tight text-bone sm:text-5xl">
+            <Title as={titleAs} className="max-w-xl break-words font-display text-3xl leading-tight text-bone sm:text-5xl">
               {title}
             </Title>
           )}

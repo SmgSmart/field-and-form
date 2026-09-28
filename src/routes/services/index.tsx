@@ -25,16 +25,16 @@ function ServicesPage() {
   return (
     <div className="min-h-screen bg-bone text-ink">
       <SiteHeader name={studio.name} />
-      <main className="mx-auto max-w-5xl px-5 pb-12 pt-8">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
         <p className="text-sm font-medium tracking-wide text-copper">Services</p>
-        <h1 className="mt-2 max-w-2xl font-display text-4xl sm:text-5xl">
+        <h1 className="mt-2 max-w-2xl break-words font-display text-[2.05rem] leading-tight sm:text-5xl">
           {active ? active.name : "Every service, by category"}
         </h1>
         <p className="mt-3 max-w-xl text-base text-muted">
           {active ? active.blurb : "Press a category. It opens that set, and each card opens the service."}
         </p>
 
-        <div className="mt-6 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+        <div className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
           <CategoryChip slug="all" label="All" current={category === "all" || !active} />
           {categories.map((item) => (
             <CategoryChip
@@ -47,7 +47,7 @@ function ServicesPage() {
         </div>
 
         {active?.imageId ? (
-          <div className="relative mt-6 h-56 overflow-hidden rounded-3xl sm:h-72">
+          <div className="relative mt-6 aspect-[4/3] overflow-hidden rounded-3xl sm:aspect-[16/9]">
             <img src={`/api/media/${active.imageId}`} alt="" className="absolute inset-0 size-full object-cover" />
             <div className="absolute inset-0 bg-ink/40" />
             <div className="relative flex h-full flex-col justify-end gap-2 p-5 sm:p-7">
@@ -66,23 +66,23 @@ function ServicesPage() {
                 : `${visible.length} services`
             }
             title={active ? active.name : studio.name}
-            className="mt-6 h-56 rounded-3xl sm:h-72"
+            className="mt-6 aspect-[4/3] rounded-3xl sm:aspect-[16/9]"
           />
         )}
 
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((service) => (
-            <li key={service.id}>
+            <li key={service.id} className="min-w-0">
               <Link
                 to="/services/$slug"
                 params={{ slug: service.slug }}
-                className="block rounded-3xl bg-paper p-2 shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
+                className="flex h-full flex-col overflow-hidden rounded-3xl bg-paper shadow-card transition-[box-shadow] duration-150 hover:shadow-card-hover"
               >
-                <ServiceMark face={service.face} imageId={service.imageIds[0]} className="h-36 w-full rounded-2xl" />
-                <span className="block px-3 pb-3 pt-3">
+                <ServiceMark face={service.face} imageId={service.imageIds[0]} className="aspect-[16/10] w-full" />
+                <span className="block min-w-0 px-4 pb-4 pt-3">
                   <span className="text-sm text-copper">{service.categoryName}</span>
-                  <span className="mt-1 block font-display text-2xl">{service.name}</span>
-                  <span className="mt-2 block text-sm leading-relaxed text-muted">{service.summary}</span>
+                  <span className="mt-1 block break-words font-display text-xl leading-tight sm:text-2xl">{service.name}</span>
+                  <span className="mt-2 block break-words text-sm leading-relaxed text-muted">{service.summary}</span>
                   <span className="mt-3 flex items-center justify-between text-sm">
                     <span>{service.priceLabel}</span>
                     <span className="text-muted">{service.durationLabel}</span>
