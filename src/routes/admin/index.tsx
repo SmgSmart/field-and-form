@@ -116,8 +116,7 @@ function IdentityPage() {
           onChange={setWhatsappKey}
         />
         <p className="text-sm leading-relaxed text-muted sm:col-span-2">
-          The key must be copied in full from the Whatabot chat — five groups of characters, not four. Send{" "}
-          <span className="font-medium text-ink">I allow whatabot to send me messages</span> to{" "}
+          Paste the key, save, then tap Send test alert. Alerts arrive in the Whatabot chat with{" "}
           <a
             href="https://wa.me/5491132704925?text=I%20allow%20whatabot%20to%20send%20me%20messages"
             target="_blank"
@@ -126,7 +125,7 @@ function IdentityPage() {
           >
             +54 9 11 3270-4925
           </a>
-          , long-press the key, copy all of it, save, then tap Send test alert. Wait five seconds between tests.
+          — not as a new conversation. Wait five seconds between tests.
         </p>
         <Field
           className="sm:col-span-2"

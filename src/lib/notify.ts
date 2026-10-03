@@ -97,9 +97,6 @@ async function sendEmail(notice: InquiryNotice): Promise<void> {
 }
 
 async function sendWhatsApp(phone: string, key: string, text: string): Promise<void> {
-  if (key.replace(/-/g, "").length < 24) {
-    throw new Error("The WhatsApp key looks cut off. Copy the whole key from the Whatabot chat — it is usually five groups, like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.");
-  }
   const payload = { ApiKey: key, Text: text.slice(0, 200), Phone: phone };
   const posted = await fetch("https://apiv2.whatabot.net/Whatsapp/RequestSendMessage", {
     method: "POST",
@@ -108,24 +105,15 @@ async function sendWhatsApp(phone: string, key: string, text: string): Promise<v
     signal: AbortSignal.timeout(8000),
   });
   const postedBody = await posted.text();
-  if (posted.ok && /enqueued/i.test(postedBody)) return;
-  if (!/invalid phone or api key/i.test(postedBody) && posted.ok && !/error/i.test(postedBody)) return;
-
-  const params = new URLSearchParams({ apikey: key, text: text.slice(0, 200), phone });
-  const gotten = await fetch(`https://api.whatabot.net/whatsapp/sendMessage?${params}`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  const gottenBody = await gotten.text();
-  if (gotten.ok && /enqueued/i.test(gottenBody)) return;
-  const err = [postedBody, gottenBody].find((line) => line.trim()) || "WhatsApp was not accepted.";
-  if (/invalid phone or api key/i.test(err)) {
-    throw new Error("Whatabot rejected the key or number. Open the Whatabot chat, copy the full key, and keep WhatsApp as 233541719097.");
-  }
-  if (/quota exceeded|rate.?limit/i.test(err)) {
+  if (/enqueued/i.test(postedBody)) return;
+  if (/quota exceeded|rate.?limit/i.test(postedBody)) {
     throw new Error("WhatsApp is rate limited. Wait 5 seconds and try again.");
   }
-  if (/not enabled/i.test(err)) {
+  if (/not enabled/i.test(postedBody)) {
     throw new Error("Whatabot says this number is not enabled. Send “I allow whatabot to send me messages” to +54 9 11 3270-4925 again.");
   }
-  throw new Error(err.slice(0, 180));
+  if (/invalid phone or api key/i.test(postedBody)) {
+    throw new Error("Whatabot rejected the key or number. Paste the new key, keep WhatsApp as 233541719097, save, then test.");
+  }
+  if (!posted.ok) throw new Error(postedBody.slice(0, 180) || "WhatsApp was not accepted.");
 }
