@@ -31,7 +31,7 @@ export async function notifyInquiry(notice: InquiryNotice): Promise<NotifyResult
       result.detail = cause instanceof Error ? cause.message : "WhatsApp failed.";
     }
   } else if (phone && !key) {
-    result.detail = "Add the WhatsApp alert key on the main page.";
+    result.detail = "Add the full WhatsApp alert key on the main page.";
   }
 
   if (isEmail(notice.email)) {
@@ -97,17 +97,35 @@ async function sendEmail(notice: InquiryNotice): Promise<void> {
 }
 
 async function sendWhatsApp(phone: string, key: string, text: string): Promise<void> {
-  const response = await fetch("https://api.whatabot.io/Whatsapp/RequestSendMessage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ApiKey: key, Text: text.slice(0, 200), Phone: phone }),
-    signal: AbortSignal.timeout(5000),
-  });
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(body.slice(0, 160) || `WhatsApp was not accepted (${response.status}).`);
+  if (key.replace(/-/g, "").length < 24) {
+    throw new Error("The WhatsApp key looks cut off. Copy the whole key from the Whatabot chat — it is usually five groups, like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.");
   }
-  if (/rate.?limit|too many/i.test(body)) {
+  const payload = { ApiKey: key, Text: text.slice(0, 200), Phone: phone };
+  const posted = await fetch("https://apiv2.whatabot.net/Whatsapp/RequestSendMessage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": key },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(8000),
+  });
+  const postedBody = await posted.text();
+  if (posted.ok && /enqueued/i.test(postedBody)) return;
+  if (!/invalid phone or api key/i.test(postedBody) && posted.ok && !/error/i.test(postedBody)) return;
+
+  const params = new URLSearchParams({ apikey: key, text: text.slice(0, 200), phone });
+  const gotten = await fetch(`https://api.whatabot.net/whatsapp/sendMessage?${params}`, {
+    signal: AbortSignal.timeout(8000),
+  });
+  const gottenBody = await gotten.text();
+  if (gotten.ok && /enqueued/i.test(gottenBody)) return;
+  const err = [postedBody, gottenBody].find((line) => line.trim()) || "WhatsApp was not accepted.";
+  if (/invalid phone or api key/i.test(err)) {
+    throw new Error("Whatabot rejected the key or number. Open the Whatabot chat, copy the full key, and keep WhatsApp as 233541719097.");
+  }
+  if (/quota exceeded|rate.?limit/i.test(err)) {
     throw new Error("WhatsApp is rate limited. Wait 5 seconds and try again.");
   }
+  if (/not enabled/i.test(err)) {
+    throw new Error("Whatabot says this number is not enabled. Send “I allow whatabot to send me messages” to +54 9 11 3270-4925 again.");
+  }
+  throw new Error(err.slice(0, 180));
 }
