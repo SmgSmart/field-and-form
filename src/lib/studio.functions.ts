@@ -363,18 +363,22 @@ export const submitInquiry = createServerFn({ method: "POST" })
       values (${id}, ${data.serviceId}, ${data.actionLabel}, ${data.name}, ${data.contact}, ${data.note}, ${data.device})
     `;
     const studio = await readStudio(sql);
-    await notifyInquiry({
-      email: studio.email,
-      whatsapp: studio.whatsapp,
-      whatsappKey: studio.whatsapp_key ?? "",
-      studioName: studio.name,
-      serviceName: found[0].name,
-      actionLabel: data.actionLabel,
-      device: data.device,
-      name: data.name,
-      contact: data.contact,
-      note: data.note,
-    });
+    try {
+      await notifyInquiry({
+        email: studio.email,
+        whatsapp: studio.whatsapp,
+        whatsappKey: studio.whatsapp_key ?? "",
+        studioName: studio.name,
+        serviceName: found[0].name,
+        actionLabel: data.actionLabel,
+        device: data.device,
+        name: data.name,
+        contact: data.contact,
+        note: data.note,
+      });
+    } catch {
+      // Enquiry is already saved. Alerts must not fail the visitor form.
+    }
     return { ok: true, data: true };
   });
 
@@ -416,7 +420,7 @@ export const saveStudio = createServerFn({ method: "POST" })
       email: input.email?.trim().slice(0, 120) ?? "",
       phone: input.phone?.trim().slice(0, 40) ?? "",
       whatsapp: input.whatsapp?.trim().slice(0, 40) ?? "",
-      whatsappKey: input.whatsappKey?.trim().slice(0, 40) ?? "",
+      whatsappKey: input.whatsappKey?.trim().slice(0, 120) ?? "",
     };
   })
   .handler(async ({ context, data }): Promise<Result<Studio>> => {
@@ -439,6 +443,38 @@ export const saveStudio = createServerFn({ method: "POST" })
       where id = 1 and owner_user_id = ${DESK_OWNER}
     `;
     return { ok: true, data };
+  });
+
+export const sendAlertTest = createServerFn({ method: "POST" })
+  .middleware([deskGate])
+  .handler(async ({ context }): Promise<Result<{ whatsapp: string; email: string; detail: string }>> => {
+    const sql = await getSql();
+    const claimed = await requireDesk(sql, context.deskSignedIn);
+    if (!claimed.ok) return claimed;
+    const studio = await readStudio(sql);
+    const result = await notifyInquiry({
+      email: studio.email,
+      whatsapp: studio.whatsapp,
+      whatsappKey: studio.whatsapp_key ?? "",
+      studioName: studio.name,
+      serviceName: "Test alert",
+      actionLabel: "Desk test",
+      device: "",
+      name: studio.name || "Desk",
+      contact: studio.email || studio.whatsapp || studio.phone,
+      note: "This is a test from the desk. If you see it, alerts are working.",
+    });
+    if (result.whatsapp !== "sent" && result.email !== "sent") {
+      return { ok: false, error: result.detail || "Could not send a test. Save your WhatsApp key and email first." };
+    }
+    return {
+      ok: true,
+      data: {
+        whatsapp: result.whatsapp,
+        email: result.email,
+        detail: result.detail,
+      },
+    };
   });
 
 export const saveCategory = createServerFn({ method: "POST" })

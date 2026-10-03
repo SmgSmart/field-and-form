@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { saveStudio } from "@/lib/studio.functions";
+import { saveStudio, sendAlertTest } from "@/lib/studio.functions";
 import type { Studio } from "@/lib/studio.types";
 import { useAdmin } from "./-desk-context";
 
@@ -15,6 +15,8 @@ function IdentityPage() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testNote, setTestNote] = useState("");
 
   useEffect(() => {
     setForm(state.studio);
@@ -26,6 +28,7 @@ function IdentityPage() {
     setPending(true);
     setSaved(false);
     setError("");
+    setTestNote("");
     try {
       const result = await saveStudio({ data: { ...form, whatsappKey } });
       if (!result.ok) {
@@ -39,6 +42,28 @@ function IdentityPage() {
       setError(cause instanceof Error ? cause.message : "Could not save.");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onTest() {
+    setTesting(true);
+    setError("");
+    setTestNote("");
+    try {
+      const result = await sendAlertTest();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const bits = [
+        result.data.whatsapp === "sent" ? "WhatsApp sent" : "WhatsApp not sent",
+        result.data.email === "sent" ? "email sent" : "email not sent",
+      ];
+      setTestNote(`${bits.join(", ")}. Check WhatsApp now — and Gmail spam for the email.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not send a test.");
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -91,16 +116,16 @@ function IdentityPage() {
           onChange={setWhatsappKey}
         />
         <p className="text-sm leading-relaxed text-muted sm:col-span-2">
-          Every enquiry is emailed straight to the address below. No confirmation step. For WhatsApp, tap{" "}
+          Paste the full key Whatabot sent you, save, then tap Send test alert. The bot number that worked is{" "}
           <a
-            href="https://wa.me/5492364205798?text=I%20allow%20whatabot%20to%20send%20me%20messages"
+            href="https://wa.me/5491132704925?text=I%20allow%20whatabot%20to%20send%20me%20messages"
             target="_blank"
             rel="noreferrer"
             className="font-medium text-copper underline"
           >
-            Allow WhatsApp alerts
+            +54 9 11 3270-4925
           </a>
-          , send the message that opens, paste the key you get back here, and save.
+          . Wait five seconds between tests.
         </p>
         <Field
           className="sm:col-span-2"
@@ -109,13 +134,22 @@ function IdentityPage() {
           onChange={(email) => setForm({ ...form, email })}
         />
         {error ? <p className="text-sm text-copper sm:col-span-2">{error}</p> : null}
-        <div className="flex items-center gap-3 sm:col-span-2">
+        {testNote ? <p className="text-sm text-muted sm:col-span-2">{testNote}</p> : null}
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || testing}
             className="h-12 rounded-full bg-copper px-5 text-base font-medium text-bone transition-transform duration-150 ease-out active:scale-[0.96] disabled:opacity-60"
           >
             {pending ? "Saving…" : "Save main page"}
+          </button>
+          <button
+            type="button"
+            onClick={onTest}
+            disabled={pending || testing}
+            className="h-12 rounded-full bg-ink px-5 text-base font-medium text-bone transition-transform duration-150 ease-out active:scale-[0.96] disabled:opacity-60"
+          >
+            {testing ? "Sending…" : "Send test alert"}
           </button>
           {saved ? <p className="text-sm text-muted">Saved. The public page uses this now.</p> : null}
         </div>
